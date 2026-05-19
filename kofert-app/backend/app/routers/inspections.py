@@ -16,7 +16,7 @@ from app.models.item import Item, ItemTypeEnum
 from app.models.anomalie import Anomalie, StatutAnomalieEnum
 from app.schemas.inspection import InspectionCreate, InspectionUpdate, InspectionOut, CalendarDayOut
 from app.services.audit_service import log_action
-from app.services.email_service import send_anomaly_alert
+from app.services.email_service import send_inspection_report
 from app.services.pdf_service import generate_inspection_pdf
 
 router = APIRouter(prefix="/api/inspections", tags=["inspections"])
@@ -55,8 +55,13 @@ def save_inspection(inspection_id: int, data: InspectionUpdate, db: Session = De
     if inspection.statut != StatutInspectionEnum.brouillon:
         raise HTTPException(status_code=400, detail="Une inspection soumise ne peut plus être modifiée")
 
+    # Find results to delete to avoid foreign key constraint errors with mesures_valeurs
+    resultat_ids = [r.id for r in db.query(Resultat.id).filter(Resultat.inspection_id == inspection_id).all()]
+    if resultat_ids:
+        db.query(MesureValeur).filter(MesureValeur.resultat_id.in_(resultat_ids)).delete(synchronize_session=False)
+
     # Delete existing results to replace them (simple way to update)
-    db.query(Resultat).filter(Resultat.inspection_id == inspection_id).delete()
+    db.query(Resultat).filter(Resultat.inspection_id == inspection_id).delete(synchronize_session=False)
     db.commit()
 
     for res_data in data.resultats:
@@ -104,7 +109,7 @@ def submit_inspection(inspection_id: int, background_tasks: BackgroundTasks, db:
     db.commit()
 
     # 3. Create anomalies and gather data for alert
-    anomalies_to_report = []
+    all_items_to_report = []
     items_for_pdf = []
     
     for res in resultats:
@@ -123,17 +128,19 @@ def submit_inspection(inspection_id: int, background_tasks: BackgroundTasks, db:
             )
             db.add(anomalie)
             
-            # Gather associated measures / readings
-            mesures_info = []
-            for mv in res.mesures_valeurs:
-                mesures_info.append(f"{mv.item_mesure.label}: {mv.valeur} {mv.item_mesure.unite or ''}")
-                
-            anomalies_to_report.append({
-                "label": item.equipement_label,
-                "remarque": res.remarque or "Aucune remarque",
-                "mesures": mesures_info
-            })
+        # Gather associated measures / readings
+        mesures_info = []
+        for mv in res.mesures_valeurs:
+            mesures_info.append(f"{mv.item_mesure.label}: {mv.valeur} {mv.item_mesure.unite or ''}")
+            
+        all_items_to_report.append({
+            "label": item.equipement_label,
+            "resultat": res.resultat.value,
+            "remarque": res.remarque or "Aucune remarque",
+            "mesures": mesures_info
+        })
     
+    anomalies_crees = len([a for a in all_items_to_report if a["resultat"] == "non_conforme"])
     db.commit()
 
     # 4. Trigger Email Alert and PDF Generation
@@ -141,7 +148,7 @@ def submit_inspection(inspection_id: int, background_tasks: BackgroundTasks, db:
     # Under Single-Supervisor Model, email alert always goes to the consolidated global supervisor
     superviseur = db.query(User).filter(User.role == RoleEnum.superviseur).first()
 
-    status_global = "Conforme" if not anomalies_to_report else "Non Conforme"
+    status_global = "Conforme" if anomalies_crees == 0 else "Non Conforme"
 
     # Safe values in case equipement is not linked
     equipement_nom = eq.nom if eq else "Équipement inconnu"
@@ -158,19 +165,19 @@ def submit_inspection(inspection_id: int, background_tasks: BackgroundTasks, db:
         items_data=items_for_pdf
     )
 
-    if anomalies_to_report and superviseur:
+    if superviseur:
         background_tasks.add_task(
-            send_anomaly_alert,
+            send_inspection_report,
             supervisor_email=superviseur.email,
             inspection_id=inspection_id,
             technician_name=f"{current_user.prenom} {current_user.nom}",
             submission_time=inspection.soumis_le.strftime("%d/%m/%Y %H:%M:%S"),
             equipment_asset_id=equipement_asset_id,
-            failed_items=anomalies_to_report
+            all_items=all_items_to_report
         )
 
     log_action(db, current_user, "SUBMIT_INSPECTION", "inspections", inspection.id)
-    return {"message": "Inspection soumise avec succès", "anomalies_crees": len(anomalies_to_report)}
+    return {"message": "Inspection soumise avec succès", "anomalies_crees": anomalies_crees}
 
 @router.get("/calendar")
 def get_calendar(mois: int, annee: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):

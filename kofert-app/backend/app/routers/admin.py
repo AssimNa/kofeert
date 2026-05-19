@@ -46,7 +46,7 @@ def get_dashboard(db: Session = Depends(get_db), current_user: User = Depends(re
 # --- USER MANAGEMENT ---
 
 @router.get("/users", response_model=List[UserOut])
-def get_users(db: Session = Depends(get_db), current_user: User = Depends(require_role([RoleEnum.admin]))):
+def get_users(db: Session = Depends(get_db), current_user: User = Depends(require_role([RoleEnum.admin, RoleEnum.superviseur]))):
     return db.query(User).all()
 
 @router.post("/users", response_model=UserOut)
@@ -154,7 +154,7 @@ def create_fiche_template(fiche_data: FicheCreate, db: Session = Depends(get_db)
 # --- INSPECTIONS & REPORTS ---
 
 @router.get("/inspections", response_model=List[dict])
-def get_all_inspections(db: Session = Depends(get_db), current_user: User = Depends(require_role([RoleEnum.admin]))):
+def get_all_inspections(db: Session = Depends(get_db), current_user: User = Depends(require_role([RoleEnum.admin, RoleEnum.superviseur]))):
     inspections = db.query(Inspection).all()
     return [{
         "id": i.id,
@@ -165,7 +165,7 @@ def get_all_inspections(db: Session = Depends(get_db), current_user: User = Depe
     } for i in inspections]
 
 @router.get("/inspections/{inspection_id}/pdf")
-def export_inspection_pdf(inspection_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_role([RoleEnum.admin]))):
+def export_inspection_pdf(inspection_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_role([RoleEnum.admin, RoleEnum.superviseur]))):
     inspection = db.query(Inspection).filter(Inspection.id == inspection_id).first()
     if not inspection:
         raise HTTPException(status_code=404, detail="Inspection non trouvée")
@@ -192,7 +192,7 @@ def export_inspection_pdf(inspection_id: int, db: Session = Depends(get_db), cur
     return FileResponse(file_path, filename=f"rapport_{inspection.id}.pdf")
 
 @router.get("/reports/daily-pdf")
-def export_daily_report(date: str, db: Session = Depends(get_db), current_user: User = Depends(require_role([RoleEnum.admin]))):
+def export_daily_report(date: str, db: Session = Depends(get_db), current_user: User = Depends(require_role([RoleEnum.admin, RoleEnum.superviseur]))):
     inspections = db.query(Inspection).filter(func.date(Inspection.date_inspection) == date).all()
     
     ins_data = []

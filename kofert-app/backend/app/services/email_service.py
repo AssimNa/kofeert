@@ -17,18 +17,18 @@ conf = ConnectionConfig(
 
 fm = FastMail(conf)
 
-async def send_anomaly_alert(
+async def send_inspection_report(
     supervisor_email: str,
     inspection_id: int,
     technician_name: str,
     submission_time: str,
     equipment_asset_id: str,
-    failed_items: List[dict],
+    all_items: List[dict],
 ):
     body = f"""
     <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; padding: 25px; border: 1px solid #e0e0e0; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); background-color: #ffffff;">
-        <h2 style="color: #e53e3e; border-bottom: 2px solid #fed7d7; padding-bottom: 12px; margin-top: 0; font-size: 22px; font-weight: 700;">🚨 Alerte Non-Conformité - Kofert</h2>
-        <p style="color: #4a5568; font-size: 15px; line-height: 1.6;">Une anomalie critique a été détectée lors de la soumission de l'inspection <strong>#{inspection_id}</strong>.</p>
+        <h2 style="color: #2b6cb0; border-bottom: 2px solid #bee3f8; padding-bottom: 12px; margin-top: 0; font-size: 22px; font-weight: 700;">📋 Rapport d'Inspection - Kofert</h2>
+        <p style="color: #4a5568; font-size: 15px; line-height: 1.6;">Une nouvelle inspection a été soumise (Inspection <strong>#{inspection_id}</strong>).</p>
         
         <table style="width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 15px; margin-bottom: 25px; border-radius: 8px; overflow: hidden; border: 1px solid #edf2f7;">
             <tr style="background-color: #f7fafc;">
@@ -45,13 +45,15 @@ async def send_anomaly_alert(
             </tr>
         </table>
         
-        <h3 style="color: #2d3748; font-size: 16px; font-weight: 700; margin-bottom: 12px; margin-top: 20px;">Détails des Points Non-Conformes</h3>
-        <div style="border: 1px solid #fed7d7; border-radius: 12px; padding: 16px; background-color: #fff5f5;">
+        <h3 style="color: #2d3748; font-size: 16px; font-weight: 700; margin-bottom: 12px; margin-top: 20px;">Détails des Points Inspectés</h3>
+        <div style="border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; background-color: #f7fafc;">
     """
-    for item in failed_items:
+    for item in all_items:
+        icon = "❌" if item.get('resultat') == 'non_conforme' else "✅"
+        color = "#c53030" if item.get('resultat') == 'non_conforme' else "#2f855a"
         body += f"""
-        <div style="margin-bottom: 16px; border-bottom: 1px solid #feb2b2; padding-bottom: 12px; last-child: border-bottom: none;">
-            <p style="margin: 0; font-weight: 700; color: #c53030; font-size: 14px;">❌ Point : {item['label']}</p>
+        <div style="margin-bottom: 16px; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; last-child: border-bottom: none;">
+            <p style="margin: 0; font-weight: 700; color: {color}; font-size: 14px;">{icon} Point : {item['label']}</p>
             <p style="margin: 6px 0 0 15px; font-size: 13.5px; color: #4a5568;"><strong>Notes terrain / Remarques :</strong> {item['remarque']}</p>
         """
         if item.get("mesures"):
@@ -73,7 +75,7 @@ async def send_anomaly_alert(
     """
 
     message = MessageSchema(
-        subject=f"⚠️ ALERTE NON-CONFORMITÉ - Inspection #{inspection_id}",
+        subject=f"📋 RAPPORT D'INSPECTION - #{inspection_id}",
         recipients=[supervisor_email],
         body=body,
         subtype=MessageType.html

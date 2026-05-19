@@ -4,6 +4,7 @@ import api from '../api';
 import { ClipboardCheck, AlertTriangle, Clock, ChevronRight, FileText, Download, ListChecks } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import SupervisorDashboard from './SupervisorDashboard';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -88,6 +89,10 @@ const Dashboard = () => {
       <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-kofert-green"></div>
     </div>
   );
+
+  if (user?.role === 'superviseur') {
+    return <SupervisorDashboard />;
+  }
 
   return (
     <motion.div 

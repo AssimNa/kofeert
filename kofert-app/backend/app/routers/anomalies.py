@@ -31,7 +31,8 @@ def get_anomalies(db: Session = Depends(get_db), current_user: User = Depends(re
         "statut": a.statut.value,
         "technicien": f"{a.inspection.technicien.prenom} {a.inspection.technicien.nom}",
         "description_action": a.description_action,
-        "assigne_a": f"{a.assigne_a_user.prenom} {a.assigne_a_user.nom}" if a.assigne_a_user else "Non assigné"
+        "assigne_a": f"{a.assigne_a_user.prenom} {a.assigne_a_user.nom}" if a.assigne_a_user else "Non assigné",
+        "assigne_a_id": a.assigne_a
     } for a in anomalies]
 
 @router.put("/{anomalie_id}/status")

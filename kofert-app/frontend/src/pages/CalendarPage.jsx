@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../api';
-import { ChevronLeft, ChevronRight, AlertCircle, CheckCircle, Clock, Ban } from 'lucide-react';
+import { ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, Clock, Ban } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const CalendarPage = () => {
