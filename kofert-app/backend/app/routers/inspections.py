@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import date, datetime
@@ -16,7 +17,7 @@ from app.models.item import Item, ItemTypeEnum
 from app.models.anomalie import Anomalie, StatutAnomalieEnum
 from app.schemas.inspection import InspectionCreate, InspectionUpdate, InspectionOut, CalendarDayOut
 from app.services.audit_service import log_action
-from app.services.email_service import send_anomaly_alert
+from app.services.email_service import send_anomaly_alert, send_inspection_submission_email
 from app.services.pdf_service import generate_inspection_pdf
 
 router = APIRouter(prefix="/api/inspections", tags=["inspections"])
@@ -106,6 +107,7 @@ def submit_inspection(inspection_id: int, background_tasks: BackgroundTasks, db:
     # 3. Create anomalies and gather data for alert
     anomalies_to_report = []
     items_for_pdf = []
+    items_for_email = []
     
     for res in resultats:
         item = db.query(Item).filter(Item.id == res.item_id).first()
@@ -113,6 +115,18 @@ def submit_inspection(inspection_id: int, background_tasks: BackgroundTasks, db:
             "label": item.equipement_label,
             "resultat": res.resultat.value,
             "remarque": res.remarque
+        })
+        
+        # Gather associated measures / readings
+        mesures_info = []
+        for mv in res.mesures_valeurs:
+            mesures_info.append(f"{mv.item_mesure.label}: {mv.valeur} {mv.item_mesure.unite or ''}")
+            
+        items_for_email.append({
+            "label": item.equipement_label,
+            "resultat": res.resultat.value,
+            "remarque": res.remarque or "Aucune remarque",
+            "mesures": mesures_info
         })
         
         if res.resultat == ResultatEnum.non_conforme:
@@ -123,11 +137,6 @@ def submit_inspection(inspection_id: int, background_tasks: BackgroundTasks, db:
             )
             db.add(anomalie)
             
-            # Gather associated measures / readings
-            mesures_info = []
-            for mv in res.mesures_valeurs:
-                mesures_info.append(f"{mv.item_mesure.label}: {mv.valeur} {mv.item_mesure.unite or ''}")
-                
             anomalies_to_report.append({
                 "label": item.equipement_label,
                 "remarque": res.remarque or "Aucune remarque",
@@ -138,8 +147,8 @@ def submit_inspection(inspection_id: int, background_tasks: BackgroundTasks, db:
 
     # 4. Trigger Email Alert and PDF Generation
     eq = db.query(Equipement).filter(Equipement.id == fiche.equipement_id).first()
-    # Under Single-Supervisor Model, email alert always goes to the consolidated global supervisor
-    superviseur = db.query(User).filter(User.role == RoleEnum.superviseur).first()
+    # Email alert goes to the specific supervisor of this equipment, fallback to any supervisor
+    superviseur = eq.superviseur if (eq and eq.superviseur) else db.query(User).filter(User.role == RoleEnum.superviseur).first()
 
     status_global = "Conforme" if not anomalies_to_report else "Non Conforme"
 
@@ -158,19 +167,87 @@ def submit_inspection(inspection_id: int, background_tasks: BackgroundTasks, db:
         items_data=items_for_pdf
     )
 
-    if anomalies_to_report and superviseur:
+    if superviseur:
         background_tasks.add_task(
-            send_anomaly_alert,
+            send_inspection_submission_email,
             supervisor_email=superviseur.email,
             inspection_id=inspection_id,
             technician_name=f"{current_user.prenom} {current_user.nom}",
             submission_time=inspection.soumis_le.strftime("%d/%m/%Y %H:%M:%S"),
             equipment_asset_id=equipement_asset_id,
-            failed_items=anomalies_to_report
+            status_global=status_global,
+            items=items_for_email
         )
+
+        if anomalies_to_report:
+            background_tasks.add_task(
+                send_anomaly_alert,
+                supervisor_email=superviseur.email,
+                inspection_id=inspection_id,
+                technician_name=f"{current_user.prenom} {current_user.nom}",
+                submission_time=inspection.soumis_le.strftime("%d/%m/%Y %H:%M:%S"),
+                equipment_asset_id=equipement_asset_id,
+                failed_items=anomalies_to_report
+            )
 
     log_action(db, current_user, "SUBMIT_INSPECTION", "inspections", inspection.id)
     return {"message": "Inspection soumise avec succès", "anomalies_crees": len(anomalies_to_report)}
+
+@router.get("/supervisor/dashboard")
+def get_supervisor_dashboard(db: Session = Depends(get_db), current_user: User = Depends(require_role([RoleEnum.superviseur]))):
+    # Get all equipment IDs for this supervisor
+    eqs = db.query(Equipement).filter(Equipement.superviseur_id == current_user.id).all()
+    eq_ids = [e.id for e in eqs]
+    
+    # Fiches templates for these equipments
+    fiches = db.query(FicheTemplate).filter(FicheTemplate.equipement_id.in_(eq_ids)).all()
+    fiche_ids = [f.id for f in fiches]
+    
+    # Inspections for today
+    today = date.today()
+    inspections_today = db.query(Inspection).filter(
+        Inspection.fiche_template_id.in_(fiche_ids),
+        Inspection.date_inspection == today
+    ).all()
+    
+    fiches_soumises_today = sum(1 for i in inspections_today if i.statut == StatutInspectionEnum.soumise)
+    
+    # Active anomalies
+    active_anomalies = db.query(Anomalie).join(Inspection).filter(
+        Inspection.fiche_template_id.in_(fiche_ids),
+        Anomalie.statut.in_([StatutAnomalieEnum.ouverte, StatutAnomalieEnum.en_cours])
+    ).count()
+    
+    # Total historical inspections submitted
+    total_submitted = db.query(Inspection).filter(
+        Inspection.fiche_template_id.in_(fiche_ids),
+        Inspection.statut == StatutInspectionEnum.soumise
+    ).count()
+    
+    # Conformity rate
+    conformity_rate = 100.0
+    if total_submitted > 0:
+        # Inspections with anomalies
+        with_anomalies = db.query(Inspection).join(Anomalie).filter(
+            Inspection.fiche_template_id.in_(fiche_ids),
+            Inspection.statut == StatutInspectionEnum.soumise
+        ).distinct().count()
+        conformity_rate = round(((total_submitted - with_anomalies) / total_submitted) * 100, 1)
+        
+    return {
+        "fiches_total_perimeter": len(fiches),
+        "fiches_soumises_today": fiches_soumises_today,
+        "active_anomalies": active_anomalies,
+        "conformity_rate": conformity_rate,
+        "recent_inspections": [{
+            "id": i.id,
+            "date": str(i.date_inspection),
+            "equipement": i.fiche_template.nom,
+            "technicien": f"{i.technicien.prenom} {i.technicien.nom}" if i.technicien else "N/A",
+            "statut": i.statut.value,
+            "anomalies": db.query(Anomalie).filter(Anomalie.inspection_id == i.id).count()
+        } for i in inspections_today]
+    }
 
 @router.get("/calendar")
 def get_calendar(mois: int, annee: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -179,10 +256,12 @@ def get_calendar(mois: int, annee: int, db: Session = Depends(get_db), current_u
     response = {}
 
     # Total expected fiches per day (based on active fiches in the system)
-    # Ideally, we should check which fiches are assigned to the user's scope.
-    # For simplicity, we just count all fiches if admin, fiches assigned to superviseur if superviseur, etc.
-    # Under Single-Supervisor Model, the supervisor has global scope (all active fiches)
-    if current_user.role in (RoleEnum.technicien, RoleEnum.superviseur, RoleEnum.admin):
+    if current_user.role == RoleEnum.superviseur:
+        expected_fiches_count = db.query(FicheTemplate).join(Equipement).filter(
+            FicheTemplate.actif == True,
+            Equipement.superviseur_id == current_user.id
+        ).count()
+    else:
         expected_fiches_count = db.query(FicheTemplate).filter(FicheTemplate.actif == True).count()
 
     for day in range(1, num_days + 1):
@@ -195,7 +274,8 @@ def get_calendar(mois: int, annee: int, db: Session = Depends(get_db), current_u
         
         if current_user.role == RoleEnum.technicien:
             query = query.filter(Inspection.technicien_id == current_user.id)
-        # Under Single-Supervisor Model, no perimeter filter is applied for the supervisor
+        elif current_user.role == RoleEnum.superviseur:
+            query = query.join(FicheTemplate).join(Equipement).filter(Equipement.superviseur_id == current_user.id)
             
         inspections_jour = query.all()
         
@@ -226,7 +306,8 @@ def get_jour(date_req: date, db: Session = Depends(get_db), current_user: User =
     query = db.query(Inspection).filter(Inspection.date_inspection == date_req)
     if current_user.role == RoleEnum.technicien:
         query = query.filter(Inspection.technicien_id == current_user.id)
-    # Under Single-Supervisor Model, no perimeter filter is applied for the supervisor
+    elif current_user.role == RoleEnum.superviseur:
+        query = query.join(FicheTemplate).join(Equipement).filter(Equipement.superviseur_id == current_user.id)
         
     inspections = query.all()
     # Build detailed response
@@ -238,7 +319,8 @@ def get_jour(date_req: date, db: Session = Depends(get_db), current_user: User =
             "id": ins.id,
             "fiche_nom": fiche.nom,
             "statut": ins.statut.value,
-            "anomalies": anom_count
+            "anomalies": anom_count,
+            "technicien": f"{ins.technicien.prenom} {ins.technicien.nom}" if ins.technicien else "N/A"
         })
         
     return fiches_details
@@ -248,4 +330,50 @@ def get_inspection_detail(inspection_id: int, db: Session = Depends(get_db), cur
     inspection = db.query(Inspection).filter(Inspection.id == inspection_id).first()
     if not inspection:
         raise HTTPException(status_code=404, detail="Not found")
+        
+    # Check supervisor perimeter
+    if current_user.role == RoleEnum.superviseur:
+        if inspection.fiche_template.equipement.superviseur_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Accès refusé - Cet équipement n'est pas dans votre périmètre")
+            
     return inspection
+
+@router.get("/{inspection_id}/pdf")
+def export_inspection_pdf_generic(inspection_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if current_user.role not in (RoleEnum.admin, RoleEnum.superviseur, RoleEnum.technicien):
+        raise HTTPException(status_code=403, detail="Accès non autorisé")
+        
+    inspection = db.query(Inspection).filter(Inspection.id == inspection_id).first()
+    if not inspection:
+        raise HTTPException(status_code=404, detail="Inspection non trouvée")
+        
+    # Check perimeter access for supervisor
+    if current_user.role == RoleEnum.superviseur:
+        if inspection.fiche_template.equipement.superviseur_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Accès refusé - Cet équipement n'est pas dans votre périmètre")
+            
+    # Check technician access (only own fiches)
+    if current_user.role == RoleEnum.technicien:
+        if inspection.technicien_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Accès refusé - Ce rapport n'est pas à vous")
+
+    items_for_pdf = []
+    for res in inspection.resultats:
+        items_for_pdf.append({
+            "label": res.item.equipement_label,
+            "resultat": res.resultat.value,
+            "remarque": res.remarque
+        })
+    
+    eq = inspection.fiche_template.equipement
+    status_global = "Conforme" if all(r.resultat == ResultatEnum.conforme for r in inspection.resultats) else "Non Conforme"
+    
+    file_path = generate_inspection_pdf(
+        inspection_id=inspection.id,
+        date_inspection=str(inspection.date_inspection),
+        technicien_nom=f"{inspection.technicien.prenom} {inspection.technicien.nom}",
+        equipement_nom=eq.nom,
+        status=status_global,
+        items_data=items_for_pdf
+    )
+    return FileResponse(file_path, filename=f"rapport_{inspection.id}.pdf")

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
-import { ClipboardCheck, AlertTriangle, Clock, ChevronRight, FileText, Download, ListChecks } from 'lucide-react';
+import { ClipboardCheck, AlertTriangle, Clock, ChevronRight, FileText, Download, ListChecks, CheckCircle, User } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
@@ -9,6 +9,7 @@ const Dashboard = () => {
   const { user } = useAuth();
   const [fiches, setFiches] = useState([]);
   const [adminStats, setAdminStats] = useState(null);
+  const [supStats, setSupStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [recentInspections, setRecentInspections] = useState([]);
 
@@ -25,6 +26,9 @@ const Dashboard = () => {
           ]);
           setAdminStats(statsRes.data);
           setRecentInspections(insRes.data.slice(-5).reverse());
+        } else if (user?.role === 'superviseur') {
+          const res = await api.get('/inspections/supervisor/dashboard');
+          setSupStats(res.data);
         } else {
           const res = await api.get('/fiches/');
           setFiches(res.data);
@@ -39,9 +43,13 @@ const Dashboard = () => {
   }, [user]);
 
   const stats = user?.role === 'admin' && adminStats ? [
-    { label: 'Utilisateurs', value: adminStats.total_users, icon: ClipboardCheck, color: 'bg-purple-50 text-purple-600' },
+    { label: 'Utilisateurs', value: adminStats.total_users, icon: User, color: 'bg-purple-50 text-purple-600' },
     { label: 'Équipements', value: adminStats.total_equipements, icon: FileText, color: 'bg-blue-50 text-blue-600' },
     { label: 'Taux Conformité', value: `${adminStats.conformity_rate}%`, icon: AlertTriangle, color: 'bg-kofert-green/10 text-kofert-green' },
+  ] : user?.role === 'superviseur' && supStats ? [
+    { label: 'Fiches Reçues (Aujourd\'hui)', value: `${supStats.fiches_soumises_today} / ${supStats.fiches_total_perimeter}`, icon: ClipboardCheck, color: 'bg-kofert-green/10 text-kofert-green' },
+    { label: 'Anomalies Actives', value: supStats.active_anomalies, icon: AlertTriangle, color: 'bg-orange-50 text-orange-600' },
+    { label: 'Taux de Conformité', value: `${supStats.conformity_rate}%`, icon: CheckCircle, color: 'bg-blue-50 text-blue-600' },
   ] : [
     { label: 'Fiches du jour', value: fiches.length, icon: ClipboardCheck, color: 'bg-blue-50 text-blue-600' },
     { label: 'Anomalies ouvertes', value: 0, icon: AlertTriangle, color: 'bg-orange-50 text-orange-600' },
@@ -70,7 +78,8 @@ const Dashboard = () => {
 
   const handleExportSinglePDF = async (insId) => {
     try {
-      const response = await api.get(`/admin/inspections/${insId}/pdf`, { responseType: 'blob' });
+      // Use the generic PDF route, which checks perimeters for supervisors and users!
+      const response = await api.get(`/inspections/${insId}/pdf`, { responseType: 'blob' });
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -79,7 +88,7 @@ const Dashboard = () => {
       link.click();
       link.remove();
     } catch (err) {
-      alert("Erreur lors de l'exportation");
+      alert("Erreur lors de l'exportation du PDF");
     }
   };
 
@@ -98,7 +107,11 @@ const Dashboard = () => {
       <header className="flex justify-between items-start">
         <div>
           <h1 className="text-4xl font-bold text-kofert-dark">Bonjour, {user?.prenom}</h1>
-          <p className="text-gray-500 mt-2 text-lg">Voici l'état du système Kofert aujourd'hui.</p>
+          <p className="text-gray-500 mt-2 text-lg">
+            {user?.role === 'superviseur' 
+              ? `Espace de supervision — Suivi des perimètres et anomalies.` 
+              : "Voici l'état du système Kofert aujourd'hui."}
+          </p>
         </div>
         {user?.role === 'admin' && (
           <Link to="/admin/fiches" className="btn-primary flex items-center gap-2">
@@ -116,7 +129,7 @@ const Dashboard = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.1 }}
             key={stat.label} 
-            className="card flex items-center gap-6"
+            className="card flex items-center gap-6 shadow-sm hover:shadow-md transition-shadow"
           >
             <div className={`w-14 h-14 ${stat.color} rounded-2xl flex items-center justify-center shadow-sm`}>
               <stat.icon size={28} />
@@ -205,8 +218,83 @@ const Dashboard = () => {
         </section>
       )}
 
-      {/* Fiches Section - Technicians/Supervisors */}
-      {user?.role !== 'admin' && (
+      {/* Superviseur view: received fiches today */}
+      {user?.role === 'superviseur' && supStats && (
+        <section className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-kofert-dark">Fiches Reçues Aujourd'hui</h2>
+            <span className="text-sm font-medium text-kofert-green bg-kofert-green/10 px-3 py-1 rounded-full">
+              {supStats.recent_inspections.length} soumises aujourd'hui
+            </span>
+          </div>
+
+          {supStats.recent_inspections.length === 0 ? (
+            <div className="card flex flex-col items-center justify-center py-16 text-center border-dashed">
+              <ClipboardCheck size={48} className="text-gray-300 mb-4 animate-pulse" />
+              <h3 className="text-lg font-bold text-kofert-dark">Aucune fiche soumise pour le moment</h3>
+              <p className="text-gray-400 text-sm mt-1">Les rapports complétés par vos techniciens apparaîtront ici en temps réel.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4">
+              {supStats.recent_inspections.map((ins, i) => (
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.3 + (i * 0.1) }}
+                  key={ins.id}
+                  className="card flex flex-col sm:flex-row items-start sm:items-center justify-between hover:border-kofert-green/30 group transition-all gap-4"
+                >
+                  <div className="flex items-center gap-5">
+                    <div className="w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-kofert-green group-hover:text-white transition-colors">
+                      <FileText size={24} />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-lg text-kofert-dark">{ins.equipement}</h3>
+                      <p className="text-sm text-gray-500 font-medium">Par {ins.technicien} • {ins.date}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between sm:justify-end gap-6 w-full sm:w-auto border-t sm:border-t-0 pt-4 sm:pt-0">
+                    <div className="flex items-center gap-3">
+                      {ins.anomalies > 0 ? (
+                        <span className="text-xs font-bold text-kofert-red bg-kofert-red/10 px-3 py-1 rounded-full flex items-center gap-1">
+                          <AlertTriangle size={12} />
+                          {ins.anomalies} anomalie{ins.anomalies > 1 ? 's' : ''}
+                        </span>
+                      ) : (
+                        <span className="text-xs font-bold text-kofert-green bg-kofert-green/10 px-3 py-1 rounded-full flex items-center gap-1">
+                          <CheckCircle size={12} />
+                          Conforme
+                        </span>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => handleExportSinglePDF(ins.id)}
+                        className="p-2 text-kofert-green hover:bg-kofert-green/5 rounded-xl transition-all"
+                        title="Télécharger PDF"
+                      >
+                        <Download size={20} />
+                      </button>
+                      <Link
+                        to={`/inspection-detail/${ins.id}`}
+                        className="btn-primary !px-4 !py-2 text-xs flex items-center gap-1"
+                      >
+                        <span>Détails</span>
+                        <ChevronRight size={14} />
+                      </Link>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Technician view: checklists to fill */}
+      {user?.role === 'technicien' && (
         <section className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold text-kofert-dark">Mes Inspections</h2>

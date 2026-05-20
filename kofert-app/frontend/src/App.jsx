@@ -9,6 +9,8 @@ import UserManagement from './pages/admin/UserManagement';
 import EquipmentManagement from './pages/admin/EquipmentManagement';
 import AuditLogPage from './pages/admin/AuditLogPage';
 import FicheManagement from './pages/admin/FicheManagement';
+import AnomaliesPage from './pages/AnomaliesPage';
+import DetailFichePage from './pages/DetailFichePage';
 
 const ProtectedRoute = ({ children, roles }) => {
   const { user, loading } = useAuth();
@@ -46,7 +48,16 @@ function App() {
             </ProtectedRoute>
           } />
           <Route path="calendar" element={<CalendarPage />} />
-          
+          <Route path="anomalies" element={
+            <ProtectedRoute roles={['superviseur', 'admin']}>
+              <AnomaliesPage />
+            </ProtectedRoute>
+          } />
+          <Route path="inspection-detail/:inspectionId" element={
+            <ProtectedRoute roles={['technicien', 'superviseur', 'admin']}>
+              <DetailFichePage />
+            </ProtectedRoute>
+          } />
           {/* Admin Routes */}
           <Route path="admin/users" element={
             <ProtectedRoute roles={['admin']}>

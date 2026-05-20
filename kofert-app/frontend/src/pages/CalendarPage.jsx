@@ -1,12 +1,18 @@
 import { useState, useEffect } from 'react';
 import api from '../api';
-import { ChevronLeft, ChevronRight, AlertCircle, CheckCircle, Clock, Ban } from 'lucide-react';
+import { ChevronLeft, ChevronRight, AlertCircle, CheckCircle, Clock, Ban, AlertTriangle, FileText, ChevronRight as ChevronRightIcon } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 
 const CalendarPage = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [calendarData, setCalendarData] = useState({});
   const [loading, setLoading] = useState(true);
+
+  // Clickable Day details state
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [dayInspections, setDayInspections] = useState([]);
+  const [loadingDay, setLoadingDay] = useState(false);
 
   const fetchCalendar = async (month, year) => {
     setLoading(true);
@@ -22,6 +28,7 @@ const CalendarPage = () => {
 
   useEffect(() => {
     fetchCalendar(currentDate.getMonth(), currentDate.getFullYear());
+    setSelectedDate(null); // Reset day details on month change
   }, [currentDate]);
 
   const daysInMonth = (month, year) => new Date(year, month + 1, 0).getDate();
@@ -33,6 +40,19 @@ const CalendarPage = () => {
 
   const handleNextMonth = () => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1));
+  };
+
+  const handleDayClick = async (dateStr) => {
+    setSelectedDate(dateStr);
+    setLoadingDay(true);
+    try {
+      const response = await api.get(`/inspections/jour?date_req=${dateStr}`);
+      setDayInspections(response.data);
+    } catch (error) {
+      console.error("Error fetching daily inspections", error);
+    } finally {
+      setLoadingDay(false);
+    }
   };
 
   const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
@@ -62,14 +82,16 @@ const CalendarPage = () => {
       const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       const dayInfo = calendarData[dateStr];
       const isToday = new Date().toDateString() === new Date(currentDate.getFullYear(), currentDate.getMonth(), day).toDateString();
+      const isSelected = selectedDate === dateStr;
 
       days.push(
         <motion.div
           whileHover={{ y: -5 }}
+          onClick={() => dayInfo && handleDayClick(dateStr)}
           key={day}
-          className={`h-24 md:h-32 p-3 rounded-2xl transition-all flex flex-col justify-between group relative overflow-hidden ${
-            dayInfo ? 'card border-none' : 'border border-gray-100'
-          } ${isToday ? 'ring-2 ring-kofert-green' : ''}`}
+          className={`h-24 md:h-32 p-3 rounded-2xl transition-all flex flex-col justify-between group relative overflow-hidden cursor-pointer ${
+            dayInfo ? 'card border-none' : 'border border-gray-100 bg-gray-50/50'
+          } ${isToday ? 'ring-2 ring-kofert-green' : ''} ${isSelected ? 'ring-2 ring-kofert-dark' : ''}`}
         >
           <div className="flex justify-between items-start">
             <span className={`text-lg font-bold ${isToday ? 'text-kofert-green' : 'text-kofert-dark'}`}>
@@ -164,6 +186,70 @@ const CalendarPage = () => {
           ))}
           {renderDays()}
         </div>
+      )}
+
+      {/* Daily Inspections Section */}
+      {selectedDate && (
+        <motion.section 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="card bg-white mt-10 space-y-6"
+        >
+          <div className="flex justify-between items-center border-b pb-4">
+            <div>
+              <h2 className="text-2xl font-bold text-kofert-dark">Inspections du {new Date(selectedDate).toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</h2>
+              <p className="text-sm text-gray-500 mt-1">Détails des points contrôlés pour cette journée.</p>
+            </div>
+            <button 
+              onClick={() => setSelectedDate(null)} 
+              className="text-xs font-bold text-gray-400 hover:text-gray-600 uppercase tracking-widest"
+            >
+              Fermer
+            </button>
+          </div>
+
+          {loadingDay ? (
+            <div className="flex justify-center py-10"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-kofert-green"></div></div>
+          ) : dayInspections.length === 0 ? (
+            <p className="text-gray-400 text-center py-6">Aucune inspection soumise ou planifiée pour cette journée.</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {dayInspections.map((ins) => (
+                <div key={ins.id} className="border border-black/5 rounded-2xl p-5 flex items-center justify-between hover:border-kofert-green/20 transition-all">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400">
+                      <FileText size={20} />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-kofert-dark text-sm">{ins.fiche_nom}</h3>
+                      <p className="text-xs text-gray-400 mt-0.5">Par {ins.technicien}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="flex flex-col items-end">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full capitalize ${
+                        ins.statut === 'soumise' ? 'bg-kofert-green/10 text-kofert-green' : 'bg-orange-50 text-orange-500'
+                      }`}>
+                        {ins.statut}
+                      </span>
+                      {ins.anomalies > 0 && (
+                        <span className="text-[10px] font-bold text-kofert-red mt-1">
+                          {ins.anomalies} anomalie{ins.anomalies > 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </div>
+                    <Link 
+                      to={`/inspection-detail/${ins.id}`}
+                      className="p-2 bg-gray-50 hover:bg-kofert-green hover:text-white rounded-xl text-gray-400 transition-all"
+                    >
+                      <ChevronRightIcon size={16} />
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </motion.section>
       )}
     </div>
   );

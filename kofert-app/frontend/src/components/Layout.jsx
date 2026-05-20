@@ -1,6 +1,6 @@
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, Home, Calendar, ClipboardList, User as UserIcon, Menu, X, FileText } from 'lucide-react';
+import { LogOut, Home, Calendar, ClipboardList, User as UserIcon, Menu, X, FileText, AlertTriangle } from 'lucide-react';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -22,6 +22,10 @@ const Layout = () => {
 
   if (user?.role === 'technicien') {
     navItems.push({ name: 'Mes Inspections', path: '/', icon: ClipboardList });
+  }
+
+  if (user?.role === 'superviseur' || user?.role === 'admin') {
+    navItems.push({ name: 'Anomalies', path: '/anomalies', icon: AlertTriangle });
   }
 
   if (user?.role === 'admin') {
