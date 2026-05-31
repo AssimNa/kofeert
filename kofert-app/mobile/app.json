@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "Kofert Inspections",
+    "slug": "kofert-inspections",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTabletMode": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.kofert.inspections",
+      "versionCode": 1
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "API_URL": "http://192.168.1.66:8000/api",
+      "TIMEOUT": 10000
+    }
+  }
+}

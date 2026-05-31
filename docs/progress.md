@@ -47,8 +47,8 @@ Ce document trace l'avancement global du développement selon la feuille de rout
 
 ---
 
-## ⚪ PHASE 4 — Mobile React Native Android (Semaines 9-12) : **À FAIRE**
-- [ ] 1. Setup React Native + React Navigation + Axios + AsyncStorage
+## 🟡 PHASE 4 — Mobile React Native Android (Semaines 9-12) : **EN COURS**
+- [/] 1. Setup React Native + React Navigation + Axios + AsyncStorage
 - [ ] 2. Login screen
 - [ ] 3. Home screen : liste fiches
 - [ ] 4. Fiche screen : check-list tactile avec champs numériques
@@ -127,3 +127,7 @@ Le responsable de terrain. Il reçoit toutes les fiches soumises par les technic
 - Modifier la configuration des check-lists.
 - Accéder au tableau de bord global (toute l'usine).
 - Accéder au journal d'audit complet.
+
+
+
+

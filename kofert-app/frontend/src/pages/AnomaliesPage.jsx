@@ -199,21 +199,22 @@ const AnomaliesPage = () => {
       {/* Editing Dialog / Slide-over Modal */}
       <AnimatePresence>
         {selectedAnomaly && (
-          <>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setSelectedAnomaly(null)}
-              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40"
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             />
             <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl z-50 overflow-hidden space-y-6"
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
             >
-              <div className="flex justify-between items-start border-b pb-4">
+              {/* Header – sticky */}
+              <div className="flex justify-between items-start border-b pb-4 px-6 pt-6 flex-shrink-0">
                 <div>
                   <span className="text-xs font-bold text-gray-400 uppercase tracking-widest block">{selectedAnomaly.equipement}</span>
                   <h2 className="text-xl font-bold text-kofert-dark mt-1">{selectedAnomaly.item}</h2>
@@ -223,6 +224,8 @@ const AnomaliesPage = () => {
                 </button>
               </div>
 
+              {/* Scrollable body */}
+              <div className="overflow-y-auto flex-1 px-6 py-4">
               <div className="space-y-4">
                 {/* Status Dropdown */}
                 <div className="space-y-2">
@@ -267,8 +270,10 @@ const AnomaliesPage = () => {
                   />
                 </div>
               </div>
+              </div>
 
-              <div className="flex gap-3 justify-end pt-4 border-t">
+              {/* Footer – sticky */}
+              <div className="flex gap-3 justify-end px-6 py-4 border-t flex-shrink-0">
                 <button
                   onClick={() => setSelectedAnomaly(null)}
                   className="px-6 py-2.5 rounded-xl font-bold text-sm text-gray-400 hover:bg-gray-50 transition-colors"
@@ -285,7 +290,7 @@ const AnomaliesPage = () => {
                 </button>
               </div>
             </motion.div>
-          </>
+          </div>
         )}
       </AnimatePresence>
     </div>
