@@ -2,7 +2,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import auth, fiches, inspections, anomalies, admin
 
+from fastapi.staticfiles import StaticFiles
+import os
+
 app = FastAPI(title="Kofert API", description="API pour l'application d'inspection Kofert", version="1.0.0")
+
+# Mount uploads directory
+os.makedirs("uploads/profiles", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # CORS middleware
 app.add_middleware(

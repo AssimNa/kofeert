@@ -9,7 +9,7 @@ from typing import List, Dict
 from app.database import get_db
 from app.middlewares.auth import get_current_user, require_role
 from app.models.user import User, RoleEnum
-from app.models.inspection import Inspection, StatutInspectionEnum
+from app.models.inspection import Inspection, StatutInspectionEnum, InspectionHistory
 from app.models.fiche import FicheTemplate
 from app.models.equipement import Equipement
 from app.models.resultat import Resultat, ResultatEnum, MesureValeur
@@ -25,14 +25,15 @@ router = APIRouter(prefix="/api/inspections", tags=["inspections"])
 @router.post("/", response_model=InspectionOut)
 def create_inspection(data: InspectionCreate, db: Session = Depends(get_db), current_user: User = Depends(require_role([RoleEnum.technicien]))):
     # Check if a draft already exists for today
-    existing = db.query(Inspection).filter(
-        Inspection.fiche_template_id == data.fiche_template_id,
-        Inspection.technicien_id == current_user.id,
-        Inspection.date_inspection == date.today()
-    ).first()
-    
-    if existing:
-        return existing
+    if not getattr(data, 'manual', False):
+        existing = db.query(Inspection).filter(
+            Inspection.fiche_template_id == data.fiche_template_id,
+            Inspection.technicien_id == current_user.id,
+            Inspection.date_inspection == date.today()
+        ).first()
+        
+        if existing:
+            return existing
 
     inspection = Inspection(
         fiche_template_id=data.fiche_template_id,
@@ -62,7 +63,7 @@ def save_inspection(inspection_id: int, data: InspectionUpdate, db: Session = De
 
     for res_data in data.resultats:
         res = Resultat(
-            inspection_id=inspection_id,
+            inspection_id=inspection.id,
             item_id=res_data.item_id,
             resultat=res_data.resultat,
             remarque=res_data.remarque
@@ -83,18 +84,59 @@ def save_inspection(inspection_id: int, data: InspectionUpdate, db: Session = De
     return {"message": "Brouillon sauvegardé"}
 
 @router.post("/{inspection_id}/submit")
-def submit_inspection(inspection_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db), current_user: User = Depends(require_role([RoleEnum.technicien]))):
+def submit_inspection(inspection_id: int, data: InspectionUpdate, background_tasks: BackgroundTasks, db: Session = Depends(get_db), current_user: User = Depends(require_role([RoleEnum.technicien]))):
     inspection = db.query(Inspection).filter(Inspection.id == inspection_id, Inspection.technicien_id == current_user.id).first()
     if not inspection:
-        raise HTTPException(status_code=404, detail="Inspection non trouvée")
-    
+        # Fallback if the mobile app sends ficheId instead of inspection_id!
+        inspection = db.query(Inspection).filter(Inspection.fiche_template_id == inspection_id, Inspection.technicien_id == current_user.id).order_by(Inspection.id.desc()).first()
+        if not inspection:
+            raise HTTPException(status_code=404, detail="Inspection non trouvée")
+
     if inspection.statut == StatutInspectionEnum.soumise:
-        raise HTTPException(status_code=400, detail="Déjà soumise")
+        # Save history before modification
+        old_resultats = []
+        for r in inspection.resultats:
+            mesures = [{"item_mesure_id": mv.item_mesure_id, "valeur": mv.valeur} for mv in r.mesures_valeurs]
+            old_resultats.append({
+                "item_id": r.item_id,
+                "resultat": r.resultat.value,
+                "remarque": r.remarque,
+                "mesures": mesures
+            })
+        history = InspectionHistory(
+            inspection_id=inspection.id,
+            modified_by_id=current_user.id,
+            resultats_data={"resultats": old_resultats}
+        )
+        db.add(history)
+        db.commit()
+        
+        # Delete old open anomalies since we are re-evaluating
+        db.query(Anomalie).filter(Anomalie.inspection_id == inspection.id, Anomalie.statut == StatutAnomalieEnum.ouverte).delete()
+
+    # Save new resultats
+    db.query(Resultat).filter(Resultat.inspection_id == inspection.id).delete()
+    db.commit()
+
+    for res_data in data.resultats:
+        res = Resultat(
+            inspection_id=inspection.id,
+            item_id=res_data.item_id,
+            resultat=res_data.resultat,
+            remarque=res_data.remarque
+        )
+        db.add(res)
+        db.flush()
+        if res_data.mesures:
+            for mes in res_data.mesures:
+                mv = MesureValeur(resultat_id=res.id, item_mesure_id=mes.item_mesure_id, valeur=mes.valeur)
+                db.add(mv)
+    db.commit()
 
     # 1. Vérifier si tous les points de la fiche ont été répondus
     fiche = db.query(FicheTemplate).filter(FicheTemplate.id == inspection.fiche_template_id).first()
     total_items = db.query(Item).filter(Item.section.has(fiche_template_id=fiche.id)).count()
-    resultats = db.query(Resultat).filter(Resultat.inspection_id == inspection_id).all()
+    resultats = db.query(Resultat).filter(Resultat.inspection_id == inspection.id).all()
     
     if len(resultats) < total_items:
         raise HTTPException(status_code=400, detail=f"Check-list incomplète. Remplis: {len(resultats)}/{total_items}")
@@ -131,7 +173,7 @@ def submit_inspection(inspection_id: int, background_tasks: BackgroundTasks, db:
         
         if res.resultat == ResultatEnum.non_conforme:
             anomalie = Anomalie(
-                inspection_id=inspection_id,
+                inspection_id=inspection.id,
                 item_id=res.item_id,
                 statut=StatutAnomalieEnum.ouverte
             )
@@ -159,7 +201,7 @@ def submit_inspection(inspection_id: int, background_tasks: BackgroundTasks, db:
     # Generate PDF in background
     background_tasks.add_task(
         generate_inspection_pdf,
-        inspection_id=inspection_id,
+        inspection_id=inspection.id,
         date_inspection=str(inspection.date_inspection),
         technicien_nom=f"{current_user.prenom} {current_user.nom}",
         equipement_nom=equipement_nom,
@@ -171,7 +213,7 @@ def submit_inspection(inspection_id: int, background_tasks: BackgroundTasks, db:
         background_tasks.add_task(
             send_inspection_submission_email,
             supervisor_email=superviseur.email,
-            inspection_id=inspection_id,
+            inspection_id=inspection.id,
             technician_name=f"{current_user.prenom} {current_user.nom}",
             submission_time=inspection.soumis_le.strftime("%d/%m/%Y %H:%M:%S"),
             equipment_asset_id=equipement_asset_id,
@@ -183,7 +225,7 @@ def submit_inspection(inspection_id: int, background_tasks: BackgroundTasks, db:
             background_tasks.add_task(
                 send_anomaly_alert,
                 supervisor_email=superviseur.email,
-                inspection_id=inspection_id,
+                inspection_id=inspection.id,
                 technician_name=f"{current_user.prenom} {current_user.nom}",
                 submission_time=inspection.soumis_le.strftime("%d/%m/%Y %H:%M:%S"),
                 equipment_asset_id=equipement_asset_id,
@@ -377,3 +419,71 @@ def export_inspection_pdf_generic(inspection_id: int, db: Session = Depends(get_
         items_data=items_for_pdf
     )
     return FileResponse(file_path, filename=f"rapport_{inspection.id}.pdf")
+
+
+@router.get("/{inspection_id}/history")
+def get_inspection_history(inspection_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_role([RoleEnum.technicien, RoleEnum.superviseur, RoleEnum.admin]))):
+    inspection = db.query(Inspection).filter(Inspection.id == inspection_id).first()
+    if not inspection:
+        raise HTTPException(status_code=404, detail="Inspection non trouvée")
+    
+    if current_user.role == RoleEnum.technicien and inspection.technicien_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Accès refusé")
+
+    histories = db.query(InspectionHistory).filter(InspectionHistory.inspection_id == inspection.id).order_by(InspectionHistory.modified_at.desc()).all()
+    return [{"id": h.id, "modified_at": h.modified_at, "modified_by": f"{h.modifier.prenom} {h.modifier.nom}"} for h in histories]
+
+@router.post("/{inspection_id}/revert/{history_id}")
+def revert_inspection(inspection_id: int, history_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_role([RoleEnum.technicien]))):
+    inspection = db.query(Inspection).filter(Inspection.id == inspection_id, Inspection.technicien_id == current_user.id).first()
+    if not inspection:
+        raise HTTPException(status_code=404, detail="Inspection non trouvée")
+        
+    history = db.query(InspectionHistory).filter(InspectionHistory.id == history_id, InspectionHistory.inspection_id == inspection.id).first()
+    if not history:
+        raise HTTPException(status_code=404, detail="Historique non trouvé")
+
+    # Save current state to history before reverting
+    old_resultats = []
+    for r in inspection.resultats:
+        mesures = [{"item_mesure_id": mv.item_mesure_id, "valeur": mv.valeur} for mv in r.mesures_valeurs]
+        old_resultats.append({
+            "item_id": r.item_id,
+            "resultat": r.resultat.value,
+            "remarque": r.remarque,
+            "mesures": mesures
+        })
+    new_history = InspectionHistory(
+        inspection_id=inspection.id,
+        modified_by_id=current_user.id,
+        resultats_data={"resultats": old_resultats}
+    )
+    db.add(new_history)
+
+    # Revert resultats
+    db.query(Resultat).filter(Resultat.inspection_id == inspection.id).delete()
+    db.query(Anomalie).filter(Anomalie.inspection_id == inspection.id, Anomalie.statut == StatutAnomalieEnum.ouverte).delete()
+    db.commit()
+
+    for res_data in history.resultats_data.get("resultats", []):
+        res = Resultat(
+            inspection_id=inspection.id,
+            item_id=res_data["item_id"],
+            resultat=res_data["resultat"],
+            remarque=res_data["remarque"]
+        )
+        db.add(res)
+        db.flush()
+        if "mesures" in res_data:
+            for mes in res_data["mesures"]:
+                mv = MesureValeur(resultat_id=res.id, item_mesure_id=mes["item_mesure_id"], valeur=mes["valeur"])
+                db.add(mv)
+                
+        # Re-evaluate anomaly
+        if res_data["resultat"] == ResultatEnum.non_conforme.value:
+            anomalie = Anomalie(inspection_id=inspection.id, item_id=res_data["item_id"], statut=StatutAnomalieEnum.ouverte)
+            db.add(anomalie)
+
+    db.commit()
+    log_action(db, current_user, "REVERT_INSPECTION", "inspections", inspection.id)
+    return {"message": "Version restaurée avec succès"}

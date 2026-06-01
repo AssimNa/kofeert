@@ -42,24 +42,24 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
-  const renderFicheCard = ({ item }) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => navigation.navigate('FicheScreen', {
-        ficheId: item.id,
-        ficheName: item.nom
-      })}
-    >
-      <View style={styles.cardHeader}>
-        <Text style={styles.cardTitle}>{item.nom}</Text>
-      </View>
-      <Text style={styles.cardMeta}>{item.local || 'Équipement'}</Text>
-      <View style={[styles.badge, { backgroundColor: getStatusColor(item.status) }]}>
-        <Text style={styles.badgeText}>
-          {item.status === 'en_attente' ? '📍 EN ATTENTE' : '✓ COMPLÉTÉ'}
-        </Text>
-      </View>
-    </TouchableOpacity>
+    const renderFicheCard = ({ item }) => (
+      <TouchableOpacity
+        style={styles.card}
+        onPress={() => navigation.navigate('FicheScreen', {
+          ficheId: item.id,
+          ficheName: item.nom
+        })}
+      >
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardTitle}>{item.nom}</Text>
+        </View>
+        <Text style={styles.cardMeta}>{item.local || 'Équipement'}</Text>
+        <View style={[styles.badge, { backgroundColor: getStatusColor(item.status) }]}>
+          <Text style={styles.badgeText}>
+            {item.status === 'en_attente' ? '📍 EN ATTENTE' : '✓ COMPLÉTÉ'}
+          </Text>
+        </View>
+      </TouchableOpacity>
   );
 
   if (loading) {
@@ -119,6 +119,7 @@ const styles = StyleSheet.create({
   list: {
     padding: 12,
   },
+
   card: {
     backgroundColor: '#fff',
     borderRadius: 12,

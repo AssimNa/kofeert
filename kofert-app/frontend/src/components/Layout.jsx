@@ -28,11 +28,15 @@ const Layout = () => {
     navItems.push({ name: 'Anomalies', path: '/anomalies', icon: AlertTriangle });
   }
 
+  // Everyone can manage fiches now
+  if (user?.role) {
+    navItems.push({ name: 'Configuration Fiches', path: '/admin/fiches', icon: ClipboardList });
+  }
+
   if (user?.role === 'admin') {
     navItems.push(
       { name: 'Utilisateurs', path: '/admin/users', icon: UserIcon },
       { name: 'Équipements', path: '/admin/equipements', icon: FileText },
-      { name: 'Configuration Fiches', path: '/admin/fiches', icon: ClipboardList },
       { name: 'Journal d\'Audit', path: '/admin/audit', icon: ClipboardList }
     );
   }
@@ -64,9 +68,19 @@ const Layout = () => {
         </nav>
 
         <div className="mt-auto pt-6 border-t border-gray-100">
-          <div className="flex items-center gap-3 px-2 mb-6">
-            <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-500">
-              <UserIcon size={20} />
+          <div 
+            onClick={() => {
+              setIsMobileMenuOpen(false);
+              navigate('/profile');
+            }}
+            className="flex items-center gap-3 px-2 mb-6 cursor-pointer hover:bg-gray-50 p-2 rounded-xl transition-colors"
+          >
+            <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 overflow-hidden">
+              {user?.photo_profil ? (
+                <img src={`http://localhost:8000${user.photo_profil}`} alt="Profil" className="w-full h-full object-cover" />
+              ) : (
+                <UserIcon size={20} />
+              )}
             </div>
             <div className="flex flex-col">
               <span className="font-semibold text-sm truncate w-32">{user?.prenom} {user?.nom}</span>
@@ -129,7 +143,7 @@ const Layout = () => {
       </AnimatePresence>
 
       {/* Main Content */}
-      <main className="flex-1 p-4 md:p-10 max-w-7xl mx-auto w-full">
+      <main className="flex-1 p-4 md:p-10 max-w-7xl mx-auto w-full relative">
         <Outlet />
       </main>
     </div>

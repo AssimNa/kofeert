@@ -18,6 +18,10 @@ class UserOut(BaseModel):
     nom: str
     prenom: str
     email: EmailStr
+    telephone: Optional[str] = None
+    adresse: Optional[str] = None
+    ville: Optional[str] = None
+    photo_profil: Optional[str] = None
     role: RoleEnum
     actif: bool
 
@@ -30,3 +34,11 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     email: Optional[str] = None
+
+class UserUpdateMe(BaseModel):
+    nom: Optional[str] = None
+    prenom: Optional[str] = None
+    telephone: Optional[str] = None
+    adresse: Optional[str] = None
+    ville: Optional[str] = None
+    password: Optional[str] = None

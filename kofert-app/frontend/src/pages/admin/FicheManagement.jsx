@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api';
-import { ListChecks, Plus, Trash2, ChevronRight, Package, Layout as SectionIcon, CheckCircle2, X, Save, AlertCircle, ArrowLeft } from 'lucide-react';
+import { ListChecks, Plus, Trash2, ChevronRight, Package, Layout as SectionIcon, CheckCircle2, X, Save, AlertCircle, ArrowLeft, Upload } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const FicheManagement = () => {
@@ -11,6 +11,40 @@ const FicheManagement = () => {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedFicheView, setSelectedFicheView] = useState(null);
+  const [editingFicheId, setEditingFicheId] = useState(null);
+  const [ficheHistory, setFicheHistory] = useState([]);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+
+  const handlePdfImport = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    setIsImporting(true);
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+      const res = await api.post('/admin/fiches/import-pdf', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      
+      setEditingFicheId(null);
+      setNewFiche({
+        nom: file.name.replace('.pdf', ''),
+        reference: '',
+        equipement_id: '',
+        sections: res.data.sections
+      });
+      setIsModalOpen(true);
+    } catch (err) {
+      alert("Erreur lors de l'importation du PDF: " + (err.response?.data?.detail || err.message));
+    } finally {
+      setIsImporting(false);
+      e.target.value = ''; // reset input
+    }
+  };
 
   // Quick Add Equipment State
   const [isEqModalOpen, setIsEqModalOpen] = useState(false);
@@ -23,7 +57,7 @@ const FicheManagement = () => {
     reference: '',
     equipement_id: '',
     sections: [
-      { titre: 'Général', ordre: 0, items: [{ equipement_label: '', controle_description: '', type: 'ok_ko', ordre: 0 }] }
+      { titre: 'Général', ordre: 0, items: [{ equipement_label: '', controle_description: '', type: 'binaire', ordre: 0 }] }
     ]
   });
 
@@ -57,22 +91,83 @@ const FicheManagement = () => {
 
   const addItem = (sIdx) => {
     const sections = [...newFiche.sections];
-    sections[sIdx].items.push({ equipement_label: '', controle_description: '', type: 'ok_ko', ordre: sections[sIdx].items.length });
+    sections[sIdx].items.push({ equipement_label: '', controle_description: '', type: 'binaire', ordre: sections[sIdx].items.length });
     setNewFiche({ ...newFiche, sections });
   };
 
   const handleSave = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
+    
+    const payload = {
+      ...newFiche,
+      equipement_id: parseInt(newFiche.equipement_id)
+    };
+
     try {
-      await api.post('/admin/fiches', newFiche);
+      if (editingFicheId) {
+        await api.put(`/admin/fiches/${editingFicheId}`, payload);
+        alert("Fiche modifiée avec succès ! (Nouvelle version créée)");
+      } else {
+        await api.post('/admin/fiches', payload);
+        alert("Fiche créée avec succès !");
+      }
       setIsModalOpen(false);
       fetchData();
-      alert("Fiche créée avec succès !");
     } catch (err) {
-      alert("Erreur lors de la création de la fiche");
+      alert("Erreur lors de l'enregistrement de la fiche: " + JSON.stringify(err.response?.data || err.message));
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleEdit = (fiche) => {
+    setEditingFicheId(fiche.id);
+    setNewFiche({
+      nom: fiche.nom,
+      reference: fiche.reference,
+      equipement_id: fiche.equipement_id || '',
+      sections: fiche.sections.map(s => ({
+        ...s,
+        items: s.items.map(i => ({...i}))
+      }))
+    });
+    setSelectedFicheView(null);
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (ficheId) => {
+    if (!window.confirm("Voulez-vous vraiment supprimer (archiver) cette fiche ?")) return;
+    try {
+      await api.delete(`/admin/fiches/${ficheId}`);
+      setSelectedFicheView(null);
+      fetchData();
+      alert("Fiche supprimée !");
+    } catch (err) {
+      alert("Erreur lors de la suppression");
+    }
+  };
+
+  const handleViewHistory = async (reference) => {
+    try {
+      const res = await api.get(`/admin/fiches/reference/${reference}/history`);
+      setFicheHistory(res.data);
+      setIsHistoryModalOpen(true);
+      setSelectedFicheView(null);
+    } catch (err) {
+      alert("Erreur lors du chargement de l'historique");
+    }
+  };
+
+  const handleRestore = async (ficheId) => {
+    if (!window.confirm("Voulez-vous restaurer cette ancienne version ?")) return;
+    try {
+      await api.post(`/admin/fiches/${ficheId}/restore`);
+      setIsHistoryModalOpen(false);
+      fetchData();
+      alert("Version restaurée avec succès !");
+    } catch (err) {
+      alert("Erreur lors de la restauration");
     }
   };
 
@@ -109,18 +204,38 @@ const FicheManagement = () => {
           <h1 className="text-4xl font-bold text-kofert-dark">Configuration des Fiches</h1>
           <p className="text-gray-500 mt-2 text-lg">Créez et personnalisez les check-lists d'inspection par équipement.</p>
         </div>
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          className="btn-primary flex items-center gap-2 self-start"
-        >
-          <Plus size={20} />
-          <span>Nouvelle Fiche Template</span>
-        </button>
+        <div className="flex items-center gap-3 self-start">
+          <label className={`btn-secondary flex items-center gap-2 cursor-pointer ${isImporting ? 'opacity-50 pointer-events-none' : ''}`}>
+            <Upload size={20} />
+            <span>{isImporting ? "Importation..." : "Importer PDF"}</span>
+            <input 
+              type="file" 
+              accept=".pdf" 
+              onChange={handlePdfImport} 
+              className="hidden" 
+            />
+          </label>
+          <button 
+            onClick={() => {
+              setEditingFicheId(null);
+              setNewFiche({
+                nom: '', reference: '', equipement_id: '',
+                sections: [{ titre: 'Général', ordre: 0, items: [{ equipement_label: '', controle_description: '', type: 'binaire', ordre: 0 }] }]
+              });
+              setIsModalOpen(true);
+            }}
+            className="btn-primary flex items-center gap-2"
+          >
+            <Plus size={20} />
+            <span>Nouvelle Fiche Template</span>
+          </button>
+        </div>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {fiches.map((fiche) => (
           <motion.div 
+            onClick={() => setSelectedFicheView(fiche)}
             whileHover={{ y: -5 }}
             key={fiche.id} 
             className="card bg-white hover:border-kofert-green/30 cursor-pointer group"
@@ -270,7 +385,7 @@ const FicheManagement = () => {
                                   setNewFiche({ ...newFiche, sections });
                                 }}
                               >
-                                <option value="ok_ko">OK / KO</option>
+                                <option value="binaire">OK / KO</option>
                                 <option value="numerique">Numérique</option>
                               </select>
                             </div>
@@ -318,6 +433,110 @@ const FicheManagement = () => {
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* View Fiche Modal */}
+      <AnimatePresence>
+        {selectedFicheView && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex justify-center py-10 px-4">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-[2rem] shadow-2xl w-full max-w-3xl flex flex-col max-h-full overflow-hidden"
+            >
+              <div className="flex justify-between items-center p-8 border-b flex-shrink-0 bg-gray-50">
+                <div>
+                  <h2 className="text-2xl font-black text-kofert-dark">{selectedFicheView.nom}</h2>
+                  <p className="text-sm text-gray-500 mt-1">Réf: {selectedFicheView.reference} • v{selectedFicheView.version || 1}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button onClick={() => handleViewHistory(selectedFicheView.reference)} className="px-4 py-2 text-sm font-bold text-gray-500 bg-white border rounded-xl hover:bg-gray-50">Historique</button>
+                  <button onClick={() => handleEdit(selectedFicheView)} className="px-4 py-2 text-sm font-bold text-kofert-dark bg-white border rounded-xl hover:bg-gray-50">Éditer</button>
+                  <button onClick={() => handleDelete(selectedFicheView.id)} className="px-4 py-2 text-sm font-bold text-red-500 bg-white border border-red-100 rounded-xl hover:bg-red-50">Supprimer</button>
+                  <div className="w-px h-6 bg-gray-200 mx-1"></div>
+                  <button onClick={() => setSelectedFicheView(null)} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
+                    <X size={24} className="text-gray-400" />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-8 space-y-8 bg-gray-50/50">
+                {selectedFicheView.sections?.map((section, sIdx) => (
+                  <div key={section.id || sIdx} className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
+                    <h3 className="text-lg font-bold text-kofert-dark mb-4 flex items-center gap-3">
+                      <span className="w-8 h-8 bg-kofert-green/10 text-kofert-green rounded-lg flex items-center justify-center text-sm">{sIdx + 1}</span>
+                      {section.titre}
+                    </h3>
+                    <div className="space-y-3 pl-11">
+                      {section.items?.map((item, iIdx) => (
+                        <div key={item.id || iIdx} className="p-4 bg-gray-50 rounded-xl border border-black/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                          <div>
+                            <p className="font-bold text-kofert-dark text-sm">{item.equipement_label}</p>
+                            <p className="text-xs text-gray-500 mt-1">{item.controle_description}</p>
+                          </div>
+                          <span className="px-3 py-1 bg-white border border-gray-200 rounded-lg text-xs font-bold text-gray-400 whitespace-nowrap shadow-sm">
+                            {item.type === 'numerique' ? 'Valeur Numérique' : 'OK / KO'}
+                          </span>
+                        </div>
+                      ))}
+                      {(!section.items || section.items.length === 0) && (
+                        <p className="text-sm text-gray-400 italic">Aucun point de contrôle dans cette section.</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {(!selectedFicheView.sections || selectedFicheView.sections.length === 0) && (
+                  <div className="text-center py-10 text-gray-400">
+                    <Package size={48} className="mx-auto mb-4 opacity-20" />
+                    <p>Aucune section configurée pour cette fiche.</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* History Modal */}
+      <AnimatePresence>
+        {isHistoryModalOpen && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[110] flex justify-center py-10 px-4">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-[2rem] shadow-2xl w-full max-w-3xl flex flex-col max-h-full overflow-hidden"
+            >
+              <div className="flex justify-between items-center p-8 border-b flex-shrink-0 bg-gray-50">
+                <div>
+                  <h2 className="text-2xl font-black text-kofert-dark">Historique des versions</h2>
+                  <p className="text-sm text-gray-500 mt-1">Réf: {ficheHistory[0]?.reference}</p>
+                </div>
+                <button onClick={() => setIsHistoryModalOpen(false)} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
+                  <X size={24} className="text-gray-400" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-8 space-y-4 bg-gray-50/50">
+                {ficheHistory.map((fiche) => (
+                  <div key={fiche.id} className="bg-white border border-gray-100 rounded-2xl p-6 flex justify-between items-center shadow-sm">
+                    <div>
+                      <h3 className="font-bold text-lg text-kofert-dark">Version {fiche.version || 1}</h3>
+                      <p className="text-sm text-gray-400">Créée le {new Date(fiche.created_at || Date.now()).toLocaleDateString()}</p>
+                      {!fiche.actif && <span className="inline-block mt-2 px-2 py-1 bg-red-50 text-red-500 text-xs font-bold rounded-md">Archivée</span>}
+                      {fiche.actif && <span className="inline-block mt-2 px-2 py-1 bg-green-50 text-green-600 text-xs font-bold rounded-md">Active (Actuelle)</span>}
+                    </div>
+                    {!fiche.actif && (
+                      <button onClick={() => handleRestore(fiche.id)} className="px-4 py-2 text-sm font-bold text-kofert-dark bg-white border rounded-xl hover:bg-gray-50">
+                        Restaurer cette version
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
             </motion.div>
           </div>
         )}

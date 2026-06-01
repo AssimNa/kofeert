@@ -11,6 +11,7 @@ import AuditLogPage from './pages/admin/AuditLogPage';
 import FicheManagement from './pages/admin/FicheManagement';
 import AnomaliesPage from './pages/AnomaliesPage';
 import DetailFichePage from './pages/DetailFichePage';
+import ProfilePage from './pages/ProfilePage';
 
 const ProtectedRoute = ({ children, roles }) => {
   const { user, loading } = useAuth();
@@ -48,6 +49,7 @@ function App() {
             </ProtectedRoute>
           } />
           <Route path="calendar" element={<CalendarPage />} />
+          <Route path="profile" element={<ProfilePage />} />
           <Route path="anomalies" element={
             <ProtectedRoute roles={['superviseur', 'admin']}>
               <AnomaliesPage />
@@ -75,7 +77,7 @@ function App() {
             </ProtectedRoute>
           } />
           <Route path="admin/fiches" element={
-            <ProtectedRoute roles={['admin']}>
+            <ProtectedRoute roles={['admin', 'superviseur', 'technicien']}>
               <FicheManagement />
             </ProtectedRoute>
           } />

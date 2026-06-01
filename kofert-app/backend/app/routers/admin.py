@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -46,7 +46,7 @@ def get_dashboard(db: Session = Depends(get_db), current_user: User = Depends(re
 # --- USER MANAGEMENT ---
 
 @router.get("/users", response_model=List[UserOut])
-def get_users(db: Session = Depends(get_db), current_user: User = Depends(require_role([RoleEnum.admin]))):
+def get_users(db: Session = Depends(get_db), current_user: User = Depends(require_role([RoleEnum.admin, RoleEnum.superviseur, RoleEnum.technicien]))):
     return db.query(User).all()
 
 @router.post("/users", response_model=UserOut)
@@ -92,11 +92,11 @@ def delete_user(user_id: int, db: Session = Depends(get_db), current_user: User 
 # --- EQUIPMENT & FICHES MANAGEMENT ---
 
 @router.get("/equipements", response_model=List[EquipementOut])
-def get_equipements(db: Session = Depends(get_db), current_user: User = Depends(require_role([RoleEnum.admin]))):
+def get_equipements(db: Session = Depends(get_db), current_user: User = Depends(require_role([RoleEnum.admin, RoleEnum.superviseur, RoleEnum.technicien]))):
     return db.query(Equipement).all()
 
 @router.post("/equipements", response_model=EquipementOut)
-def create_equipement(eq_data: EquipementCreate, db: Session = Depends(get_db), current_user: User = Depends(require_role([RoleEnum.admin]))):
+def create_equipement(eq_data: EquipementCreate, db: Session = Depends(get_db), current_user: User = Depends(require_role([RoleEnum.admin, RoleEnum.superviseur, RoleEnum.technicien]))):
     new_eq = Equipement(**eq_data.dict())
     db.add(new_eq)
     db.commit()
@@ -117,7 +117,7 @@ def update_equipement(eq_id: int, eq_data: EquipementUpdate, db: Session = Depen
     return eq
 
 @router.post("/fiches", response_model=FicheOut)
-def create_fiche_template(fiche_data: FicheCreate, db: Session = Depends(get_db), current_user: User = Depends(require_role([RoleEnum.admin]))):
+def create_fiche_template(fiche_data: FicheCreate, db: Session = Depends(get_db), current_user: User = Depends(require_role([RoleEnum.admin, RoleEnum.superviseur, RoleEnum.technicien]))):
     new_fiche = FicheTemplate(
         equipement_id=fiche_data.equipement_id,
         nom=fiche_data.nom,
@@ -148,8 +148,168 @@ def create_fiche_template(fiche_data: FicheCreate, db: Session = Depends(get_db)
             db.add(new_item)
     
     db.commit()
+    db.commit()
     db.refresh(new_fiche)
     return new_fiche
+
+@router.put("/fiches/{fiche_id}", response_model=FicheOut)
+def update_fiche_template(fiche_id: int, fiche_data: FicheCreate, db: Session = Depends(get_db), current_user: User = Depends(require_role([RoleEnum.admin, RoleEnum.superviseur, RoleEnum.technicien]))):
+    old_fiche = db.query(FicheTemplate).filter(FicheTemplate.id == fiche_id).first()
+    if not old_fiche:
+        raise HTTPException(status_code=404, detail="Fiche non trouvée")
+    
+    old_fiche.actif = False
+    
+    new_version = (old_fiche.version or 1) + 1
+    new_fiche = FicheTemplate(
+        equipement_id=fiche_data.equipement_id,
+        nom=fiche_data.nom,
+        reference=old_fiche.reference,
+        version=new_version,
+        actif=True
+    )
+    db.add(new_fiche)
+    db.commit()
+    db.refresh(new_fiche)
+
+    for s_idx, s_data in enumerate(fiche_data.sections):
+        new_section = Section(
+            fiche_template_id=new_fiche.id,
+            titre=s_data.titre,
+            ordre=s_data.ordre or s_idx
+        )
+        db.add(new_section)
+        db.commit()
+        db.refresh(new_section)
+
+        for i_idx, i_data in enumerate(s_data.items):
+            new_item = Item(
+                section_id=new_section.id,
+                equipement_label=i_data.equipement_label,
+                controle_description=i_data.controle_description,
+                type=i_data.type,
+                ordre=i_data.ordre or i_idx
+            )
+            db.add(new_item)
+    
+    db.commit()
+    db.refresh(new_fiche)
+    return new_fiche
+
+@router.delete("/fiches/{fiche_id}")
+def delete_fiche_template(fiche_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_role([RoleEnum.admin, RoleEnum.superviseur, RoleEnum.technicien]))):
+    fiche = db.query(FicheTemplate).filter(FicheTemplate.id == fiche_id).first()
+    if not fiche:
+        raise HTTPException(status_code=404, detail="Fiche non trouvée")
+    
+    fiche.actif = False
+    db.commit()
+    return {"detail": "Fiche archivée avec succès"}
+
+from sqlalchemy.orm import joinedload
+
+@router.get("/fiches/reference/{reference}/history", response_model=List[FicheOut])
+def get_fiche_history(reference: str, db: Session = Depends(get_db), current_user: User = Depends(require_role([RoleEnum.admin, RoleEnum.superviseur, RoleEnum.technicien]))):
+    fiches = db.query(FicheTemplate).options(
+        joinedload(FicheTemplate.sections).joinedload(Section.items).joinedload(Item.mesures)
+    ).filter(FicheTemplate.reference == reference).order_by(FicheTemplate.version.desc()).all()
+    return fiches
+
+@router.post("/fiches/{fiche_id}/restore", response_model=FicheOut)
+def restore_fiche_template(fiche_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_role([RoleEnum.admin, RoleEnum.superviseur, RoleEnum.technicien]))):
+    target_fiche = db.query(FicheTemplate).filter(FicheTemplate.id == fiche_id).first()
+    if not target_fiche:
+        raise HTTPException(status_code=404, detail="Fiche non trouvée")
+    
+    db.query(FicheTemplate).filter(FicheTemplate.reference == target_fiche.reference).update({"actif": False})
+    
+    current_max_version = db.query(func.max(FicheTemplate.version)).filter(FicheTemplate.reference == target_fiche.reference).scalar() or 1
+    
+    new_fiche = FicheTemplate(
+        equipement_id=target_fiche.equipement_id,
+        nom=target_fiche.nom,
+        reference=target_fiche.reference,
+        version=current_max_version + 1,
+        actif=True
+    )
+    db.add(new_fiche)
+    db.commit()
+    db.refresh(new_fiche)
+    
+    for old_section in target_fiche.sections:
+        new_section = Section(
+            fiche_template_id=new_fiche.id,
+            titre=old_section.titre,
+            ordre=old_section.ordre
+        )
+        db.add(new_section)
+        db.commit()
+        db.refresh(new_section)
+        
+        for old_item in old_section.items:
+            new_item = Item(
+                section_id=new_section.id,
+                equipement_label=old_item.equipement_label,
+                controle_description=old_item.controle_description,
+                type=old_item.type,
+                ordre=old_item.ordre
+            )
+            db.add(new_item)
+            
+    db.commit()
+    db.refresh(new_fiche)
+    return new_fiche
+
+import pdfplumber
+
+@router.post("/fiches/import-pdf")
+async def import_pdf_fiche(file: UploadFile = File(...), current_user: User = Depends(require_role([RoleEnum.admin, RoleEnum.superviseur, RoleEnum.technicien]))):
+    if not file.filename.lower().endswith('.pdf'):
+        raise HTTPException(status_code=400, detail="Seuls les fichiers PDF sont acceptés")
+        
+    sections = []
+    current_section = None
+    
+    try:
+        with pdfplumber.open(file.file) as pdf:
+            for page in pdf.pages:
+                text = page.extract_text()
+                if not text: continue
+                lines = text.split('\n')
+                for line in lines:
+                    line = line.strip()
+                    if not line: continue
+                    
+                    if (len(line) < 60 and line.isupper()) or (len(line) < 60 and line[0].isdigit() and (len(line) > 1 and line[1] in ['.', '-', ' '])):
+                        current_section = {
+                            "titre": line.capitalize(),
+                            "ordre": len(sections),
+                            "items": []
+                        }
+                        sections.append(current_section)
+                    else:
+                        if not current_section:
+                            current_section = {
+                                "titre": "Général",
+                                "ordre": len(sections),
+                                "items": []
+                            }
+                            sections.append(current_section)
+                        
+                        current_section["items"].append({
+                            "equipement_label": line[:100], 
+                            "controle_description": line,
+                            "type": "binaire",
+                            "ordre": len(current_section["items"])
+                        })
+                        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur de lecture du PDF: {str(e)}")
+        
+    if not sections:
+        raise HTTPException(status_code=400, detail="Aucun texte n'a pu être extrait de ce PDF.")
+        
+    return {"sections": sections}
 
 # --- INSPECTIONS & REPORTS ---
 
