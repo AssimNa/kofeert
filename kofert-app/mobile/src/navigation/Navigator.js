@@ -11,6 +11,9 @@ import LoginScreen from '../screens/LoginScreen';
 import HomeScreen from '../screens/HomeScreen';
 import FicheScreen from '../screens/FicheScreen';
 import CalendrierScreen from '../screens/CalendrierScreen';
+import CreateTemplateScreen from '../screens/CreateTemplateScreen';
+import ProfileScreen from '../screens/ProfileScreen';
+import DetailFicheScreen from '../screens/DetailFicheScreen';
 
 // Temporary placeholders for screens not yet implemented
 const DetailJourScreen = () => null;
@@ -43,6 +46,16 @@ function HomeStack() {
           title: route.params?.ficheName || 'Inspection'
         })}
       />
+      <Stack.Screen
+        name="CreateTemplateScreen"
+        component={CreateTemplateScreen}
+        options={{ title: 'Configuration de la Check-list' }}
+      />
+      <Stack.Screen
+        name="ProfileScreen"
+        component={ProfileScreen}
+        options={{ headerShown: false }}
+      />
     </Stack.Navigator>
   );
 }
@@ -74,10 +87,8 @@ function CalendrierStack() {
       />
       <Stack.Screen
         name="FicheDetailScreen"
-        component={FicheScreen}
-        options={({ route }) => ({
-          title: route.params?.ficheName || 'Inspection'
-        })}
+        component={DetailFicheScreen}
+        options={{ headerShown: false }}
       />
     </Stack.Navigator>
   );

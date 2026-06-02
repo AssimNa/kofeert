@@ -55,7 +55,7 @@ const ProfilePage = () => {
     try {
       const payload = { ...formData };
       if (!payload.password) delete payload.password; // Don't send empty password
-      
+
       const res = await api.put('/auth/me', payload);
       setUser(res.data);
       localStorage.setItem('user', JSON.stringify(res.data));
@@ -70,7 +70,7 @@ const ProfilePage = () => {
 
   return (
     <div className="space-y-8 max-w-5xl mx-auto pb-20">
-      <button 
+      <button
         onClick={() => navigate(-1)}
         className="flex items-center gap-2 text-gray-500 hover:text-kofert-dark transition-colors font-medium"
       >
@@ -82,7 +82,7 @@ const ProfilePage = () => {
         <div className="h-48 bg-kofert-dark w-full relative">
           {/* Header background */}
         </div>
-        
+
         <div className="px-8 pb-10">
           <div className="relative flex justify-between items-end -mt-16 mb-8">
             <div className="flex items-end gap-6">
@@ -106,14 +106,14 @@ const ProfilePage = () => {
                 <p className="text-sm font-bold text-kofert-green uppercase tracking-widest mt-1">{user?.role}</p>
               </div>
             </div>
-            
-            <button 
+
+            <button
               onClick={handleSubmit}
               disabled={loading}
               className="btn-primary flex items-center gap-2 mb-2"
             >
               <Save size={20} />
-              <span>{loading ? "Sauvegarde..." : "Update"}</span>
+              <span>{loading ? "Sauvegarde..." : "save"}</span>
             </button>
           </div>
 
@@ -124,7 +124,7 @@ const ProfilePage = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
               <div className="space-y-2">
                 <label className="text-sm font-black text-gray-500 ml-1">Prénom *</label>
-                <input 
+                <input
                   required
                   name="prenom"
                   className="input-field bg-gray-50/50"
@@ -134,7 +134,7 @@ const ProfilePage = () => {
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-black text-gray-500 ml-1">Nom *</label>
-                <input 
+                <input
                   required
                   name="nom"
                   className="input-field bg-gray-50/50"
@@ -144,7 +144,7 @@ const ProfilePage = () => {
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-black text-gray-500 ml-1">Email *</label>
-                <input 
+                <input
                   required
                   type="email"
                   name="email"
@@ -155,7 +155,7 @@ const ProfilePage = () => {
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-black text-gray-500 ml-1">Téléphone</label>
-                <input 
+                <input
                   name="telephone"
                   placeholder="+212 ..."
                   className="input-field bg-gray-50/50"
@@ -165,7 +165,7 @@ const ProfilePage = () => {
               </div>
               <div className="md:col-span-2 space-y-2">
                 <label className="text-sm font-black text-gray-500 ml-1">Adresse</label>
-                <input 
+                <input
                   name="adresse"
                   placeholder="123 Rue de l'Exemple..."
                   className="input-field bg-gray-50/50"
@@ -175,7 +175,7 @@ const ProfilePage = () => {
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-black text-gray-500 ml-1">Ville</label>
-                <input 
+                <input
                   name="ville"
                   placeholder="Casablanca"
                   className="input-field bg-gray-50/50"
@@ -189,7 +189,7 @@ const ProfilePage = () => {
               <h3 className="text-xl font-black text-kofert-dark mb-6">Sécurité</h3>
               <div className="space-y-2 max-w-md">
                 <label className="text-sm font-black text-gray-500 ml-1">Nouveau Mot de passe (optionnel)</label>
-                <input 
+                <input
                   type="password"
                   name="password"
                   placeholder="Laisser vide pour ne pas changer"

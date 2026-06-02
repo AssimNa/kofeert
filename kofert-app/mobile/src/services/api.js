@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 
 const defaultApiUrl = Platform.OS === 'web' 
   ? 'http://127.0.0.1:8000/api' 
-  : (Platform.OS === 'android' ? 'http://10.0.2.2:8000/api' : 'http://127.0.0.1:8000/api');
+  : 'http://192.168.1.73:8000/api'; // IP du PC pour un appareil physique
 
 const API_URL = Constants.expoConfig?.extra?.API_URL || defaultApiUrl;
 const TIMEOUT = Constants.expoConfig?.extra?.TIMEOUT || 10000;

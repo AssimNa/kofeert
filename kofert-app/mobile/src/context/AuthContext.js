@@ -29,13 +29,13 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     try {
-      // In the Kofert backend, login expects form-data with username and password
-      const formData = new FormData();
-      formData.append('username', email);
-      formData.append('password', password);
-
-      const response = await api.post('/auth/login', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+      // Send as x-www-form-urlencoded, exactly what OAuth2PasswordRequestForm expects
+      const payload = `username=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`;
+      
+      const response = await api.post('/auth/login', payload, {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        }
       });
       
       const { access_token } = response.data;
