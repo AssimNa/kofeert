@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 
 const defaultApiUrl = Platform.OS === 'web' 
   ? 'http://127.0.0.1:8000/api' 
-  : 'http://192.168.1.73:8000/api'; // IP du PC pour un appareil physique
+  : 'https://bumpy-loops-notice.loca.lt/api';
 
 const API_URL = Constants.expoConfig?.extra?.API_URL || defaultApiUrl;
 const TIMEOUT = Constants.expoConfig?.extra?.TIMEOUT || 10000;
@@ -17,6 +17,9 @@ const api = axios.create({
 
 api.interceptors.request.use(
   async (config) => {
+    config.headers['Bypass-Tunnel-Reminder'] = 'true'; // Required for localtunnel
+    config.headers['ngrok-skip-browser-warning'] = 'true'; // Just in case
+    
     const token = await AsyncStorage.getItem('jwt_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
