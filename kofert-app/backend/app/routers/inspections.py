@@ -96,7 +96,7 @@ def submit_inspection(inspection_id: int, data: InspectionUpdate, background_tas
         # Save history before modification
         old_resultats = []
         for r in inspection.resultats:
-            mesures = [{"item_mesure_id": mv.item_mesure_id, "valeur": mv.valeur} for mv in r.mesures_valeurs]
+            mesures = [{"item_mesure_id": mv.item_mesure_id, "valeur": float(mv.valeur) if mv.valeur is not None else None} for mv in r.mesures_valeurs]
             old_resultats.append({
                 "item_id": r.item_id,
                 "resultat": r.resultat.value,
@@ -106,7 +106,7 @@ def submit_inspection(inspection_id: int, data: InspectionUpdate, background_tas
         history = InspectionHistory(
             inspection_id=inspection.id,
             modified_by_id=current_user.id,
-            resultats_data={"resultats": old_resultats}
+            data={"resultats": old_resultats}
         )
         db.add(history)
         db.commit()
@@ -276,8 +276,10 @@ def get_supervisor_dashboard(db: Session = Depends(get_db), current_user: User =
         ).distinct().count()
         conformity_rate = round(((total_submitted - with_anomalies) / total_submitted) * 100, 1)
         
+    active_fiches_count = sum(1 for f in fiches if f.actif)
+    
     return {
-        "fiches_total_perimeter": len(fiches),
+        "fiches_total_perimeter": active_fiches_count,
         "fiches_soumises_today": fiches_soumises_today,
         "active_anomalies": active_anomalies,
         "conformity_rate": conformity_rate,
@@ -446,7 +448,7 @@ def revert_inspection(inspection_id: int, history_id: int, db: Session = Depends
     # Save current state to history before reverting
     old_resultats = []
     for r in inspection.resultats:
-        mesures = [{"item_mesure_id": mv.item_mesure_id, "valeur": mv.valeur} for mv in r.mesures_valeurs]
+        mesures = [{"item_mesure_id": mv.item_mesure_id, "valeur": float(mv.valeur) if mv.valeur is not None else None} for mv in r.mesures_valeurs]
         old_resultats.append({
             "item_id": r.item_id,
             "resultat": r.resultat.value,
@@ -456,7 +458,7 @@ def revert_inspection(inspection_id: int, history_id: int, db: Session = Depends
     new_history = InspectionHistory(
         inspection_id=inspection.id,
         modified_by_id=current_user.id,
-        resultats_data={"resultats": old_resultats}
+        data={"resultats": old_resultats}
     )
     db.add(new_history)
 
@@ -465,7 +467,7 @@ def revert_inspection(inspection_id: int, history_id: int, db: Session = Depends
     db.query(Anomalie).filter(Anomalie.inspection_id == inspection.id, Anomalie.statut == StatutAnomalieEnum.ouverte).delete()
     db.commit()
 
-    for res_data in history.resultats_data.get("resultats", []):
+    for res_data in history.data.get("resultats", []):
         res = Resultat(
             inspection_id=inspection.id,
             item_id=res_data["item_id"],

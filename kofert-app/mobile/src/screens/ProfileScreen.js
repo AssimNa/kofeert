@@ -12,13 +12,135 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthContext } from '../context/AuthContext';
-import api from '../services/api';
+import api, { API_URL } from '../services/api';
+import { saveUserData } from '../services/storage';
 import Colors from '../constants/colors';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import { Image } from 'react-native';
 
 export default function ProfileScreen({ navigation }) {
   const { user, setUser, logout } = useContext(AuthContext);
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  const getImageUrl = (path) => {
+    if (!path) return null;
+    const baseUrl = API_URL.replace(/\/api\/?$/, '');
+    return `${baseUrl}${path}`;
+  };
+
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      if (Platform.OS !== 'web') {
+        Alert.alert('Permission requise', 'Nous avons besoin de la permission pour accéder à vos photos.');
+      }
+      return;
+    }
+
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+    });
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      uploadImage(result.assets[0]);
+    }
+  };
+
+  const deleteImage = async () => {
+    setUploading(true);
+    try {
+      const response = await api.delete('/auth/me/photo');
+      setUser(response.data);
+      await saveUserData(response.data);
+      if (Platform.OS !== 'web') {
+        Alert.alert('Succès', 'Photo de profil supprimée.');
+      }
+    } catch (error) {
+      console.error('Erreur suppression photo:', error);
+      const msg = error.response?.data?.detail || "Erreur lors de la suppression";
+      if (Platform.OS !== 'web') {
+        Alert.alert('Erreur', msg);
+      }
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleAvatarPress = () => {
+    if (Platform.OS === 'web') {
+      // Pour le web, on utilise le simple pickImage car Alert.alert sans boutons est complexe
+      if (user?.photo_profil) {
+        const confirmDelete = window.confirm("Voulez-vous supprimer votre photo de profil ? Cliquez sur 'Annuler' pour choisir une nouvelle photo.");
+        if (confirmDelete) {
+          deleteImage();
+        } else {
+          pickImage();
+        }
+      } else {
+        pickImage();
+      }
+      return;
+    }
+
+    const options = [
+      { text: 'Prendre une photo de la galerie', onPress: pickImage },
+      { text: 'Annuler', style: 'cancel' }
+    ];
+
+    if (user?.photo_profil) {
+      options.unshift({ 
+        text: 'Supprimer la photo actuelle', 
+        onPress: () => {
+          Alert.alert('Confirmation', 'Voulez-vous vraiment supprimer votre photo ?', [
+            { text: 'Annuler', style: 'cancel' },
+            { text: 'Supprimer', style: 'destructive', onPress: deleteImage }
+          ]);
+        }, 
+        style: 'destructive' 
+      });
+    }
+
+    Alert.alert('Photo de profil', 'Que voulez-vous faire ?', options);
+  };
+
+  const uploadImage = async (asset) => {
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      
+      const filename = asset.uri.split('/').pop() || 'photo.jpg';
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : `image/jpeg`;
+
+      formData.append('file', {
+        uri: asset.uri,
+        name: filename,
+        type: type,
+      });
+
+      const response = await api.post('/auth/me/photo', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      setUser(response.data);
+      await saveUserData(response.data);
+    } catch (error) {
+      console.error('Erreur upload:', error);
+      const msg = error.response?.data?.detail || "Erreur lors de l'upload";
+      if (Platform.OS !== 'web') {
+        Alert.alert('Erreur', msg);
+      }
+    } finally {
+      setUploading(false);
+    }
+  };
 
   // Form State
   const [formData, setFormData] = useState({
@@ -45,6 +167,7 @@ export default function ProfileScreen({ navigation }) {
       
       const response = await api.put('/auth/me', payload);
       setUser(response.data);
+      await saveUserData(response.data);
       
       if (Platform.OS === 'web') {
         window.alert('Profil mis à jour avec succès.');
@@ -77,11 +200,25 @@ export default function ProfileScreen({ navigation }) {
 
       <ScrollView style={styles.scrollContent}>
         <View style={styles.avatarSection}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {user?.prenom?.[0]}{user?.nom?.[0]}
-            </Text>
-          </View>
+          <TouchableOpacity style={styles.avatarContainer} onPress={handleAvatarPress} disabled={uploading}>
+            {user?.photo_profil ? (
+              <Image source={{ uri: getImageUrl(user?.photo_profil) }} style={styles.avatarImage} />
+            ) : (
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>
+                  {user?.prenom?.[0] || ''}{user?.nom?.[0] || ''}
+                </Text>
+              </View>
+            )}
+            
+            <View style={styles.cameraIconContainer}>
+              {uploading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Ionicons name="camera" size={16} color="#fff" />
+              )}
+            </View>
+          </TouchableOpacity>
           <Text style={styles.roleText}>{user?.role?.toUpperCase()}</Text>
         </View>
 
@@ -185,6 +322,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginVertical: 20,
   },
+  avatarContainer: {
+    position: 'relative',
+    marginBottom: 10,
+  },
   avatar: {
     width: 80,
     height: 80,
@@ -192,7 +333,24 @@ const styles = StyleSheet.create({
     backgroundColor: '#1D9E75',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+  },
+  avatarImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+  },
+  cameraIconContainer: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: '#1D9E75',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
   },
   avatarText: {
     fontSize: 28,

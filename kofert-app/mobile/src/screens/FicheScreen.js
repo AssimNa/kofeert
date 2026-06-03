@@ -77,7 +77,7 @@ export default function FicheScreen({ route, navigation }) {
       'Confirmation',
       "Êtes-vous sûr ? Cette fiche ne pourra plus être modifiée après l'envoi.",
       [
-        { text: 'Annuler', onPress: () => {} },
+        { text: 'Annuler', onPress: () => { } },
         {
           text: 'Confirmer et envoyer',
           onPress: async () => {

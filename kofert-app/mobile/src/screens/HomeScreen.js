@@ -7,12 +7,13 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../context/AuthContext';
-import api from '../services/api';
+import api, { API_URL } from '../services/api';
 import Colors from '../constants/colors';
 
 export default function HomeScreen({ navigation }) {
@@ -130,8 +131,15 @@ export default function HomeScreen({ navigation }) {
               })}
             </Text>
           </View>
-          <TouchableOpacity onPress={() => navigation.navigate('ProfileScreen')} style={{ padding: 8, backgroundColor: '#f0f0f0', borderRadius: 20 }}>
-            <Ionicons name="person" size={24} color="#333" />
+          <TouchableOpacity onPress={() => navigation.navigate('ProfileScreen')} style={user?.photo_profil ? styles.avatarButtonWithImage : styles.avatarButton}>
+            {user?.photo_profil ? (
+              <Image 
+                source={{ uri: `${API_URL.replace(/\/api\/?$/, '')}${user.photo_profil}` }} 
+                style={styles.avatarSmallImage} 
+              />
+            ) : (
+              <Ionicons name="person" size={24} color="#333" />
+            )}
           </TouchableOpacity>
         </View>
         <TouchableOpacity 
@@ -180,6 +188,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  avatarButton: {
+    padding: 8, 
+    backgroundColor: '#f0f0f0', 
+    borderRadius: 20,
+  },
+  avatarButtonWithImage: {
+    padding: 0,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  avatarSmallImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
   },
   newTemplateButton: {
     backgroundColor: '#28A745',

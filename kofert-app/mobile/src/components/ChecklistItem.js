@@ -43,22 +43,26 @@ export default function ChecklistItem({
         </View>
       </View>
 
-      {!result && (
-        <View style={styles.buttons}>
-          <TouchableOpacity
-            style={[styles.button, styles.buttonConforme]}
-            onPress={() => onResultChange('conforme')}
-          >
-            <Text style={styles.buttonText}>Conforme</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.button, styles.buttonNonConforme]}
-            onPress={() => onResultChange('non_conforme')}
-          >
-            <Text style={styles.buttonText}>Non-conforme</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+      <View style={styles.buttons}>
+        <TouchableOpacity
+          style={[
+            styles.button, 
+            result === 'conforme' ? styles.buttonConforme : styles.unselected
+          ]}
+          onPress={() => onResultChange(result === 'conforme' ? null : 'conforme')}
+        >
+          <Text style={[styles.buttonText, result === 'conforme' ? {color: Colors.green} : null]}>Conforme</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.button, 
+            result === 'non_conforme' ? styles.buttonNonConforme : styles.unselected
+          ]}
+          onPress={() => onResultChange(result === 'non_conforme' ? null : 'non_conforme')}
+        >
+          <Text style={[styles.buttonText, result === 'non_conforme' ? {color: Colors.red} : null]}>Non-conforme</Text>
+        </TouchableOpacity>
+      </View>
 
       {hasNumeric && (
         <View style={styles.mesuresGroup}>
@@ -159,6 +163,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#333',
+  },
+  unselected: {
+    backgroundColor: '#f5f5f5',
+    borderColor: '#eee',
+    borderWidth: 1,
   },
   mesuresGroup: {
     backgroundColor: '#f5f5f5',

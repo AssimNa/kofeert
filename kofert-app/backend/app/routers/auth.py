@@ -60,3 +60,24 @@ async def upload_profile_photo(file: UploadFile = File(...), db: Session = Depen
     db.refresh(current_user)
     
     return current_user
+
+@router.delete("/me/photo", response_model=UserOut)
+def delete_profile_photo(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if current_user.photo_profil:
+        # Extraire le nom de fichier ou le chemin depuis photo_profil
+        # Exemple: /uploads/profiles/filename.jpg -> uploads/profiles/filename.jpg
+        filepath = current_user.photo_profil.lstrip("/")
+        
+        # Supprimer physiquement le fichier s'il existe
+        if os.path.exists(filepath):
+            try:
+                os.remove(filepath)
+            except Exception as e:
+                print(f"Erreur lors de la suppression de l'image: {e}")
+                
+        # Mettre à jour la base de données
+        current_user.photo_profil = None
+        db.commit()
+        db.refresh(current_user)
+        
+    return current_user

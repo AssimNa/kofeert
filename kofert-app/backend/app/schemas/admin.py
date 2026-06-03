@@ -20,6 +20,7 @@ class UserOut(BaseModel):
     nom: str
     prenom: str
     email: EmailStr
+    photo_profil: Optional[str] = None
     role: RoleEnum
     actif: bool
 

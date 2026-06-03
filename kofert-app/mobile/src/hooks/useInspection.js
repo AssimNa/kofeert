@@ -37,10 +37,18 @@ export function useInspection(ficheId) {
   }, [ficheId]);
 
   const updateResult = useCallback((itemId, resultat) => {
-    setInspection(prev => ({
-      ...prev,
-      resultats: { ...prev.resultats, [itemId]: resultat }
-    }));
+    setInspection(prev => {
+      const newResultats = { ...prev.resultats };
+      if (resultat === null) {
+        delete newResultats[itemId];
+      } else {
+        newResultats[itemId] = resultat;
+      }
+      return {
+        ...prev,
+        resultats: newResultats
+      };
+    });
   }, []);
 
   const updateMesure = useCallback((itemMesureId, valeur) => {
@@ -69,19 +77,39 @@ export function useInspection(ficheId) {
     }
   }, [inspection, ficheId]);
 
-  const submitInspection = useCallback(async () => {
+  const submitInspection = useCallback(async (fiche) => {
     try {
-      const payload = {
-        fiche_template_id: ficheId,
-        resultats: Object.keys(inspection.resultats).map(itemId => ({
-          item_id: parseInt(itemId),
+      const resultatsPayload = Object.keys(inspection.resultats).map(itemIdStr => {
+        const itemId = parseInt(itemIdStr);
+        
+        let mesuresForItem = [];
+        if (fiche && fiche.sections) {
+          for (const section of fiche.sections) {
+            const item = section.items?.find(i => i.id === itemId);
+            if (item && item.item_mesures) {
+              item.item_mesures.forEach(m => {
+                if (inspection.mesures[m.id] !== undefined) {
+                  mesuresForItem.push({
+                    item_mesure_id: m.id,
+                    valeur: parseFloat(inspection.mesures[m.id])
+                  });
+                }
+              });
+              break;
+            }
+          }
+        }
+
+        return {
+          item_id: itemId,
           resultat: inspection.resultats[itemId],
-          remarque: inspection.remarques[itemId] || null
-        })),
-        mesures: Object.keys(inspection.mesures).map(mesureId => ({
-          mesure_id: parseInt(mesureId),
-          valeur: parseFloat(inspection.mesures[mesureId])
-        }))
+          remarque: inspection.remarques[itemId] || null,
+          mesures: mesuresForItem
+        };
+      });
+
+      const payload = {
+        resultats: resultatsPayload
       };
 
       const response = await api.post(`/inspections/${ficheId}/submit`, payload);
@@ -93,9 +121,19 @@ export function useInspection(ficheId) {
         await addToSyncQueue(ficheId);
         return { success: true, offline: true, message: "Enregistré hors ligne" };
       }
+      
+      let errorMsg = 'Erreur de soumission';
+      if (error.response?.data?.detail) {
+        if (Array.isArray(error.response.data.detail)) {
+          errorMsg = error.response.data.detail.map(e => `${e.loc.join('.')}: ${e.msg}`).join('\n');
+        } else {
+          errorMsg = error.response.data.detail;
+        }
+      }
+      
       return { 
         success: false, 
-        error: error.response?.data?.detail || 'Erreur de soumission' 
+        error: errorMsg
       };
     }
   }, [inspection, ficheId]);

@@ -244,9 +244,17 @@ const UserManagement = () => {
                 <tr key={user.id} className="hover:bg-gray-50/50 transition-colors">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-kofert-green/10 text-kofert-green rounded-full flex items-center justify-center font-bold">
-                        {user.prenom[0]}{user.nom[0]}
-                      </div>
+                      {user.photo_profil ? (
+                        <img 
+                          src={`${api.defaults.baseURL.replace(/\/api\/?$/, '')}${user.photo_profil}`} 
+                          alt={`${user.prenom} ${user.nom}`}
+                          className="w-10 h-10 rounded-full object-cover border border-gray-100"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 bg-kofert-green/10 text-kofert-green rounded-full flex items-center justify-center font-bold">
+                          {user.prenom[0]}{user.nom[0]}
+                        </div>
+                      )}
                       <div className="flex flex-col">
                         <span className="font-bold text-kofert-dark">{user.prenom} {user.nom}</span>
                         <span className="text-sm text-gray-400 flex items-center gap-1"><Mail size={12} /> {user.email}</span>

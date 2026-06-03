@@ -20,16 +20,16 @@ const FicheManagement = () => {
   const handlePdfImport = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    
+
     setIsImporting(true);
     const formData = new FormData();
     formData.append('file', file);
-    
+
     try {
       const res = await api.post('/admin/fiches/import-pdf', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      
+
       setEditingFicheId(null);
       setNewFiche({
         nom: file.name.replace('.pdf', ''),
@@ -98,7 +98,7 @@ const FicheManagement = () => {
   const handleSave = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
+
     const payload = {
       ...newFiche,
       equipement_id: parseInt(newFiche.equipement_id)
@@ -129,7 +129,7 @@ const FicheManagement = () => {
       equipement_id: fiche.equipement_id || '',
       sections: fiche.sections.map(s => ({
         ...s,
-        items: s.items.map(i => ({...i}))
+        items: s.items.map(i => ({ ...i }))
       }))
     });
     setSelectedFicheView(null);
@@ -179,7 +179,7 @@ const FicheManagement = () => {
         superviseur_id: parseInt(newEq.superviseur_id)
       });
       setEquipements([...equipements, res.data]);
-      setNewFiche({...newFiche, equipement_id: res.data.id});
+      setNewFiche({ ...newFiche, equipement_id: res.data.id });
       setIsEqModalOpen(false);
       setNewEq({ nom: '', code: '', site: '', local: '', superviseur_id: '' });
     } catch (err) {
@@ -191,7 +191,7 @@ const FicheManagement = () => {
 
   return (
     <div className="space-y-8">
-      <button 
+      <button
         onClick={() => navigate(-1)}
         className="flex items-center gap-2 text-gray-500 hover:text-kofert-dark transition-colors font-medium"
       >
@@ -208,14 +208,14 @@ const FicheManagement = () => {
           <label className={`btn-secondary flex items-center gap-2 cursor-pointer ${isImporting ? 'opacity-50 pointer-events-none' : ''}`}>
             <Upload size={20} />
             <span>{isImporting ? "Importation..." : "Importer PDF"}</span>
-            <input 
-              type="file" 
-              accept=".pdf" 
-              onChange={handlePdfImport} 
-              className="hidden" 
+            <input
+              type="file"
+              accept=".pdf"
+              onChange={handlePdfImport}
+              className="hidden"
             />
           </label>
-          <button 
+          <button
             onClick={() => {
               setEditingFicheId(null);
               setNewFiche({
@@ -234,10 +234,10 @@ const FicheManagement = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {fiches.map((fiche) => (
-          <motion.div 
+          <motion.div
             onClick={() => setSelectedFicheView(fiche)}
             whileHover={{ y: -5 }}
-            key={fiche.id} 
+            key={fiche.id}
             className="card bg-white hover:border-kofert-green/30 cursor-pointer group"
           >
             <div className="flex justify-between items-start mb-4">
@@ -259,7 +259,7 @@ const FicheManagement = () => {
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] overflow-y-auto py-10 px-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
@@ -278,19 +278,19 @@ const FicheManagement = () => {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Équipement Cible</label>
-                      <button 
-                        type="button" 
+                      <button
+                        type="button"
                         onClick={() => setIsEqModalOpen(true)}
                         className="text-[10px] font-bold text-kofert-green hover:underline"
                       >
                         + Nouveau
                       </button>
                     </div>
-                    <select 
+                    <select
                       required
                       className="input-field"
                       value={newFiche.equipement_id}
-                      onChange={e => setNewFiche({...newFiche, equipement_id: e.target.value})}
+                      onChange={e => setNewFiche({ ...newFiche, equipement_id: e.target.value })}
                     >
                       <option value="">Sélectionner...</option>
                       {equipements.map(eq => <option key={eq.id} value={eq.id}>{eq.nom} ({eq.code})</option>)}
@@ -299,22 +299,22 @@ const FicheManagement = () => {
                   <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Nom de la Fiche</label>
-                      <input 
+                      <input
                         required
                         className="input-field"
                         placeholder="ex: Maintenance Mensuelle T1"
                         value={newFiche.nom}
-                        onChange={e => setNewFiche({...newFiche, nom: e.target.value})}
+                        onChange={e => setNewFiche({ ...newFiche, nom: e.target.value })}
                       />
                     </div>
                     <div className="space-y-2">
                       <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Référence</label>
-                      <input 
+                      <input
                         required
                         className="input-field"
                         placeholder="ex: REF-MAIN-001"
                         value={newFiche.reference}
-                        onChange={e => setNewFiche({...newFiche, reference: e.target.value})}
+                        onChange={e => setNewFiche({ ...newFiche, reference: e.target.value })}
                       />
                     </div>
                   </div>
@@ -333,7 +333,7 @@ const FicheManagement = () => {
                     <div key={sIdx} className="border border-gray-100 rounded-2xl p-6 space-y-6 relative group/section">
                       <div className="flex items-center gap-4">
                         <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 font-bold text-xs">{sIdx + 1}</div>
-                        <input 
+                        <input
                           required
                           className="text-lg font-bold bg-transparent border-b border-transparent focus:border-kofert-green outline-none w-full"
                           placeholder="Titre de la section..."
@@ -350,7 +350,7 @@ const FicheManagement = () => {
                         {section.items.map((item, iIdx) => (
                           <div key={iIdx} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center bg-gray-50/50 p-4 rounded-xl relative group/item">
                             <div className="md:col-span-4 space-y-1">
-                              <input 
+                              <input
                                 required
                                 className="input-field !py-2 !text-sm"
                                 placeholder="Label (ex: Niveau d'huile)"
@@ -363,7 +363,7 @@ const FicheManagement = () => {
                               />
                             </div>
                             <div className="md:col-span-5 space-y-1">
-                              <input 
+                              <input
                                 required
                                 className="input-field !py-2 !text-sm"
                                 placeholder="Description du contrôle"
@@ -376,7 +376,7 @@ const FicheManagement = () => {
                               />
                             </div>
                             <div className="md:col-span-2">
-                              <select 
+                              <select
                                 className="input-field !py-2 !text-sm appearance-none"
                                 value={item.type}
                                 onChange={e => {
@@ -390,7 +390,7 @@ const FicheManagement = () => {
                               </select>
                             </div>
                             <div className="md:col-span-1 flex justify-end">
-                              <button 
+                              <button
                                 type="button"
                                 onClick={() => {
                                   const sections = [...newFiche.sections];
@@ -404,8 +404,8 @@ const FicheManagement = () => {
                             </div>
                           </div>
                         ))}
-                        <button 
-                          type="button" 
+                        <button
+                          type="button"
                           onClick={() => addItem(sIdx)}
                           className="text-gray-400 font-medium text-sm flex items-center gap-1 hover:text-kofert-green transition-colors"
                         >
@@ -417,14 +417,14 @@ const FicheManagement = () => {
                 </div>
 
                 <div className="flex gap-4 pt-10 border-t border-gray-100">
-                  <button 
+                  <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
                     className="flex-1 px-8 py-4 rounded-2xl font-bold text-gray-500 hover:bg-gray-100 transition-all"
                   >
                     Annuler
                   </button>
-                  <button 
+                  <button
                     type="submit"
                     disabled={isSubmitting}
                     className="flex-[2] btn-primary py-4 shadow-xl shadow-kofert-green/30"
@@ -442,7 +442,7 @@ const FicheManagement = () => {
       <AnimatePresence>
         {selectedFicheView && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[100] flex justify-center py-10 px-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
@@ -463,7 +463,7 @@ const FicheManagement = () => {
                   </button>
                 </div>
               </div>
-              
+
               <div className="flex-1 overflow-y-auto p-8 space-y-8 bg-gray-50/50">
                 {selectedFicheView.sections?.map((section, sIdx) => (
                   <div key={section.id || sIdx} className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
@@ -505,7 +505,7 @@ const FicheManagement = () => {
       <AnimatePresence>
         {isHistoryModalOpen && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[110] flex justify-center py-10 px-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
@@ -546,7 +546,7 @@ const FicheManagement = () => {
       <AnimatePresence>
         {isEqModalOpen && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[110] flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
@@ -554,11 +554,11 @@ const FicheManagement = () => {
             >
               <h2 className="text-2xl font-bold mb-6">Nouvel Équipement</h2>
               <form onSubmit={handleCreateEq} className="space-y-4">
-                <input required className="input-field" placeholder="Nom" value={newEq.nom} onChange={e => setNewEq({...newEq, nom: e.target.value})} />
-                <input required className="input-field" placeholder="Code" value={newEq.code} onChange={e => setNewEq({...newEq, code: e.target.value})} />
-                <input required className="input-field" placeholder="Site" value={newEq.site} onChange={e => setNewEq({...newEq, site: e.target.value})} />
-                <input required className="input-field" placeholder="Localisation" value={newEq.local} onChange={e => setNewEq({...newEq, local: e.target.value})} />
-                <select required className="input-field" value={newEq.superviseur_id} onChange={e => setNewEq({...newEq, superviseur_id: e.target.value})}>
+                <input required className="input-field" placeholder="Nom" value={newEq.nom} onChange={e => setNewEq({ ...newEq, nom: e.target.value })} />
+                <input required className="input-field" placeholder="Code" value={newEq.code} onChange={e => setNewEq({ ...newEq, code: e.target.value })} />
+                <input required className="input-field" placeholder="Site" value={newEq.site} onChange={e => setNewEq({ ...newEq, site: e.target.value })} />
+                <input required className="input-field" placeholder="Localisation" value={newEq.local} onChange={e => setNewEq({ ...newEq, local: e.target.value })} />
+                <select required className="input-field" value={newEq.superviseur_id} onChange={e => setNewEq({ ...newEq, superviseur_id: e.target.value })}>
                   <option value="">Superviseur...</option>
                   {supervisors.map(s => <option key={s.id} value={s.id}>{s.prenom} {s.nom}</option>)}
                 </select>
