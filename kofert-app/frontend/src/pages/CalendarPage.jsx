@@ -45,6 +45,12 @@ const CalendarPage = () => {
   const handleDayClick = async (dateStr) => {
     setSelectedDate(dateStr);
     setLoadingDay(true);
+    
+    // Auto-scroll to the details section so the user sees the response immediately
+    setTimeout(() => {
+      document.getElementById('daily-inspections-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+
     try {
       const response = await api.get(`/inspections/jour?date_req=${dateStr}`);
       setDayInspections(response.data);
@@ -191,9 +197,10 @@ const CalendarPage = () => {
       {/* Daily Inspections Section */}
       {selectedDate && (
         <motion.section 
+          id="daily-inspections-section"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="card bg-white mt-10 space-y-6"
+          className="card bg-white mt-10 space-y-6 scroll-mt-24"
         >
           <div className="flex justify-between items-center border-b pb-4">
             <div>

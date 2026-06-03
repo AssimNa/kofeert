@@ -88,9 +88,23 @@ def submit_inspection(inspection_id: int, data: InspectionUpdate, background_tas
     inspection = db.query(Inspection).filter(Inspection.id == inspection_id, Inspection.technicien_id == current_user.id).first()
     if not inspection:
         # Fallback if the mobile app sends ficheId instead of inspection_id!
-        inspection = db.query(Inspection).filter(Inspection.fiche_template_id == inspection_id, Inspection.technicien_id == current_user.id).order_by(Inspection.id.desc()).first()
+        inspection = db.query(Inspection).filter(
+            Inspection.fiche_template_id == inspection_id, 
+            Inspection.technicien_id == current_user.id,
+            Inspection.date_inspection == date.today()
+        ).first()
+        
         if not inspection:
-            raise HTTPException(status_code=404, detail="Inspection non trouvée")
+            # Create a new inspection for today since the mobile app works offline and only sends ficheId
+            inspection = Inspection(
+                fiche_template_id=inspection_id,
+                technicien_id=current_user.id,
+                date_inspection=date.today(),
+                statut=StatutInspectionEnum.brouillon
+            )
+            db.add(inspection)
+            db.commit()
+            db.refresh(inspection)
 
     if inspection.statut == StatutInspectionEnum.soumise:
         # Save history before modification
@@ -144,6 +158,7 @@ def submit_inspection(inspection_id: int, data: InspectionUpdate, background_tas
     # 2. Update status
     inspection.statut = StatutInspectionEnum.soumise
     inspection.soumis_le = datetime.utcnow()
+    inspection.date_inspection = date.today()  # Ensure it counts for today's dashboard
     db.commit()
 
     # 3. Create anomalies and gather data for alert
@@ -252,7 +267,7 @@ def get_supervisor_dashboard(db: Session = Depends(get_db), current_user: User =
         Inspection.date_inspection == today
     ).all()
     
-    fiches_soumises_today = sum(1 for i in inspections_today if i.statut == StatutInspectionEnum.soumise)
+    fiches_soumises_today = len(set(i.fiche_template_id for i in inspections_today if i.statut == StatutInspectionEnum.soumise))
     
     # Active anomalies
     active_anomalies = db.query(Anomalie).join(Inspection).filter(
@@ -323,7 +338,7 @@ def get_calendar(mois: int, annee: int, db: Session = Depends(get_db), current_u
             
         inspections_jour = query.all()
         
-        fiches_soumises = sum(1 for i in inspections_jour if i.statut == StatutInspectionEnum.soumise)
+        fiches_soumises = len(set(i.fiche_template_id for i in inspections_jour if i.statut == StatutInspectionEnum.soumise))
         anomalies_jour = db.query(Anomalie).join(Inspection).filter(Inspection.id.in_([i.id for i in inspections_jour])).count() if inspections_jour else 0
 
         # Determine status

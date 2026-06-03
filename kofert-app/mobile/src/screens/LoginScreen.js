@@ -7,6 +7,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthContext } from '../context/AuthContext';
@@ -36,6 +37,11 @@ export default function LoginScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
+        <Image 
+          source={require('../../assets/kofert.jpg')} 
+          style={styles.logo} 
+          resizeMode="contain" 
+        />
         <Text style={styles.title}>KOFERT</Text>
         <Text style={styles.subtitle}>Inspections Industrielles</Text>
 
@@ -89,6 +95,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     paddingHorizontal: 20,
+  },
+  logo: {
+    width: 120,
+    height: 120,
+    alignSelf: 'center',
+    marginBottom: 10,
   },
   title: {
     fontSize: 28,

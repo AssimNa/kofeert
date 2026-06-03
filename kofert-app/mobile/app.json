@@ -26,7 +26,6 @@
       "favicon": "./assets/favicon.png"
     },
     "extra": {
-      "API_URL": "https://bumpy-loops-notice.loca.lt/api",
       "TIMEOUT": 10000
     }
   }

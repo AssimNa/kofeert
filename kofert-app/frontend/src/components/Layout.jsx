@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { LogOut, Home, Calendar, ClipboardList, User as UserIcon, Menu, X, FileText, AlertTriangle } from 'lucide-react';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import logo from '../assets/kofert.jpg';
 
 const Layout = () => {
   const { user, logout } = useAuth();
@@ -46,7 +47,7 @@ const Layout = () => {
       {/* Sidebar - Desktop */}
       <aside className="hidden md:flex w-72 bg-white border-r border-black/5 flex-col p-6 sticky top-0 h-screen">
         <div className="flex items-center gap-3 px-2 mb-10">
-          <div className="w-10 h-10 bg-kofert-green rounded-xl flex items-center justify-center text-white font-bold text-xl">K</div>
+          <img src={logo} alt="Kofert Logo" className="h-10 w-auto rounded-xl object-contain" />
           <span className="font-bold text-2xl tracking-tight text-kofert-dark">Kofert</span>
         </div>
 
@@ -100,7 +101,7 @@ const Layout = () => {
       {/* Mobile Nav */}
       <header className="md:hidden bg-white border-b border-black/5 p-4 flex items-center justify-between sticky top-0 z-50">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-kofert-green rounded-lg flex items-center justify-center text-white font-bold">K</div>
+          <img src={logo} alt="Kofert Logo" className="h-8 w-auto rounded-lg object-contain" />
           <span className="font-bold text-xl tracking-tight">Kofert</span>
         </div>
         <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 text-gray-500">

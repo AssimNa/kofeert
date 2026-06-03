@@ -3,9 +3,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
-const defaultApiUrl = Platform.OS === 'web' 
-  ? 'http://127.0.0.1:8000/api' 
-  : 'https://bumpy-loops-notice.loca.lt/api';
+const getBackendUrl = () => {
+  if (Platform.OS === 'web') return 'http://127.0.0.1:8000/api';
+  
+  // URL localtunnel garantie pour passer à travers tous les pare-feux
+  return 'https://bumpy-loops-notice.loca.lt/api';
+};
+
+const defaultApiUrl = getBackendUrl();
 
 const API_URL = Constants.expoConfig?.extra?.API_URL || defaultApiUrl;
 const TIMEOUT = Constants.expoConfig?.extra?.TIMEOUT || 10000;

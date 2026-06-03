@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
-import { User as UserIcon, Save, ArrowLeft, Camera } from 'lucide-react';
+import { User as UserIcon, Save, ArrowLeft, Camera, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const ProfilePage = () => {
@@ -44,6 +44,20 @@ const ProfilePage = () => {
     } finally {
       setLoading(false);
       e.target.value = '';
+    }
+  };
+
+  const handlePhotoDelete = async () => {
+    try {
+      setLoading(true);
+      const res = await api.delete('/auth/me/photo');
+      setUser(res.data);
+      localStorage.setItem('user', JSON.stringify(res.data));
+      setSuccess('Photo de profil supprimée !');
+    } catch (err) {
+      setError("Erreur lors de la suppression de la photo");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -100,6 +114,17 @@ const ProfilePage = () => {
                   <Camera size={16} />
                   <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
                 </label>
+                {user?.photo_profil && (
+                  <button
+                    type="button"
+                    onClick={handlePhotoDelete}
+                    disabled={loading}
+                    className="absolute top-0 right-0 p-2 bg-red-500 text-white rounded-full cursor-pointer hover:bg-red-600 transition-colors shadow-lg"
+                    title="Supprimer la photo"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
               </div>
               <div className="mb-2">
                 <h1 className="text-3xl font-black text-kofert-dark">{user?.prenom} {user?.nom}</h1>
