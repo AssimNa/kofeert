@@ -119,6 +119,7 @@ export function useInspection(ficheId) {
       if (!error.response && error.request) {
         // Network Error -> Offline Sync
         await addToSyncQueue(ficheId);
+        await deleteFicheBrouillon(ficheId);
         return { success: true, offline: true, message: "Enregistré hors ligne" };
       }
       

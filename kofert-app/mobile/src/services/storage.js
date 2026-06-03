@@ -12,24 +12,13 @@ export async function initializeApp() {
 }
 
 export async function saveFicheBrouillon(ficheId, data) {
-  try {
-    const brouillon = { ...data, last_saved: moment().toISOString(), status: 'draft' };
-    await AsyncStorage.setItem(`inspection_draft_${ficheId}`, JSON.stringify(brouillon));
-    return true;
-  } catch (error) {
-    console.error('Erreur sauvegarde brouillon:', error);
-    return false;
-  }
+  // Désactivé à la demande de l'utilisateur : on veut toujours une fiche 100% vierge
+  return true;
 }
 
 export async function getFicheBrouillon(ficheId) {
-  try {
-    const data = await AsyncStorage.getItem(`inspection_draft_${ficheId}`);
-    return data ? JSON.parse(data) : null;
-  } catch (error) {
-    console.error('Erreur récupération brouillon:', error);
-    return null;
-  }
+  // Désactivé : on ne charge jamais l'ancien brouillon
+  return null;
 }
 
 export async function deleteFicheBrouillon(ficheId) {
