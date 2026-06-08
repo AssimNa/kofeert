@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Package, MapPin, Tag, Search, Plus, X, Loader2, ArrowLeft } from 'lucide-react';
+import { Package, MapPin, Tag, Search, Plus, X, Loader2, ArrowLeft, User } from 'lucide-react';
 
 const EquipmentManagement = () => {
   const navigate = useNavigate();
@@ -69,6 +69,12 @@ const EquipmentManagement = () => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const getSupervisorName = (id) => {
+    if (!id) return "Non assigné";
+    const supervisor = supervisors.find(s => s.id === id);
+    return supervisor ? `${supervisor.prenom} ${supervisor.nom}` : `Inconnu (#${id})`;
   };
 
   const filteredEqs = eqs.filter(e => 
@@ -221,7 +227,7 @@ const EquipmentManagement = () => {
               <tr className="bg-gray-50/30 text-gray-400 text-xs font-black uppercase tracking-widest border-b border-gray-50">
                 <th className="px-6 py-4">Équipement</th>
                 <th className="px-6 py-4">Localisation</th>
-                <th className="px-6 py-4">ID Superviseur</th>
+                <th className="px-6 py-4">Superviseur</th>
                 <th className="px-6 py-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -245,8 +251,13 @@ const EquipmentManagement = () => {
                       <span className="text-xs text-gray-400 flex items-center gap-1"><MapPin size={10}/> {eq.local}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-sm font-medium text-gray-500">
-                    #{eq.superviseur_id}
+                  <td className="px-6 py-4 text-sm font-medium text-gray-700">
+                    <div className="flex items-center gap-2">
+                      <div className="bg-gray-100 p-1.5 rounded-lg">
+                        <User size={14} className="text-gray-500" />
+                      </div>
+                      <span>{getSupervisorName(eq.superviseur_id)}</span>
+                    </div>
                   </td>
                   <td className="px-6 py-4 text-right">
                     <button 

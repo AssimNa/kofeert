@@ -6,8 +6,8 @@ import { Platform } from 'react-native';
 const getBackendUrl = () => {
   if (Platform.OS === 'web') return 'http://127.0.0.1:8000/api';
   
-  // URL localtunnel garantie pour passer à travers tous les pare-feux
-  return 'https://bumpy-loops-notice.loca.lt/api';
+  // Using stable localtunnel URL to bypass Windows Firewall and Ngrok CORS issues
+  return 'https://petite-weeks-juggle.loca.lt/api';
 };
 
 const defaultApiUrl = getBackendUrl();

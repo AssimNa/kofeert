@@ -380,6 +380,7 @@ def get_audit_log(db: Session = Depends(get_db), current_user: User = Depends(re
             action=l.action,
             table_cible=l.table_cible,
             record_id=l.record_id,
+            details_json=l.details_json,
             timestamp=str(l.timestamp)
         ) for l in logs
     ]

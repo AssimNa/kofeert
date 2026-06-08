@@ -24,8 +24,25 @@ export default function HomeScreen({ navigation }) {
   const loadFiches = async () => {
     setLoading(true);
     try {
-      const response = await api.get('/fiches');
-      setFiches(response.data);
+      // Fetch templates
+      const response = await api.get('/fiches/');
+      const templates = response.data;
+      
+      // Fetch today's inspections
+      const todayStr = new Date().toISOString().split('T')[0];
+      const insRes = await api.get(`/inspections/jour?date_req=${todayStr}`);
+      const inspections = insRes.data;
+
+      // Merge status into templates
+      const merged = templates.map(t => {
+        const ins = inspections.find(i => i.fiche_nom === t.nom);
+        return {
+          ...t,
+          status: ins && ins.statut === 'soumise' ? 'complete' : 'en_attente'
+        };
+      });
+
+      setFiches(merged);
     } catch (error) {
       console.error('Erreur load fiches:', error);
     } finally {

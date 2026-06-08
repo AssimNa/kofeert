@@ -15,8 +15,7 @@ import CreateTemplateScreen from '../screens/CreateTemplateScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import DetailFicheScreen from '../screens/DetailFicheScreen';
 
-// Temporary placeholders for screens not yet implemented
-const DetailJourScreen = () => null;
+import DetailJourScreen from '../screens/DetailJourScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();

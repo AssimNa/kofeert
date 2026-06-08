@@ -108,6 +108,31 @@ const AnomaliesPage = () => {
     return anom.statut === activeTab;
   });
 
+  // Group anomalies by date
+  const groupAnomaliesByDate = (anomaliesList) => {
+    const groups = anomaliesList.reduce((acc, anom) => {
+      const dateStr = new Date(anom.date).toLocaleDateString('fr-FR', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+      if (!acc[dateStr]) {
+        acc[dateStr] = {
+          dateStr,
+          rawDate: new Date(anom.date).setHours(0,0,0,0),
+          items: []
+        };
+      }
+      acc[dateStr].items.push(anom);
+      return acc;
+    }, {});
+
+    return Object.values(groups).sort((a, b) => b.rawDate - a.rawDate);
+  };
+
+  const groupedFilteredAnomalies = groupAnomaliesByDate(filteredAnomalies);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -154,44 +179,57 @@ const AnomaliesPage = () => {
           <p className="text-gray-400 text-sm mt-1">Félicitations, tout semble en parfait état dans votre périmètre.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {filteredAnomalies.map((anom, i) => (
-            <motion.div
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05 }}
-              key={anom.id}
-              className="card flex flex-col justify-between hover:border-kofert-green/30 group transition-all relative overflow-hidden bg-white shadow-sm"
-            >
-              <div className="space-y-4">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">{anom.equipement}</span>
-                    <h3 className="font-bold text-lg text-kofert-dark mt-1 leading-snug">{anom.item}</h3>
-                  </div>
-                  <span className={`text-xs font-bold px-3 py-1.5 rounded-xl border flex items-center gap-1.5 uppercase tracking-wide select-none ${getStatusBadgeClass(anom.statut)}`}>
-                    {getStatusIcon(anom.statut, 12)}
-                    {anom.statut.replace('_', ' ')}
-                  </span>
-                </div>
+        <div className="space-y-12">
+          {groupedFilteredAnomalies.map((group, groupIndex) => (
+            <div key={group.dateStr} className="space-y-6">
+              <h2 className="text-xl font-bold text-kofert-dark capitalize border-b pb-3 flex items-center gap-3">
+                <Clock size={22} className="text-kofert-green" />
+                {group.dateStr}
+                <span className="bg-gray-100 text-gray-500 text-sm font-medium px-3 py-1 rounded-full ml-2">
+                  {group.items.length} {group.items.length > 1 ? 'anomalies' : 'anomalie'}
+                </span>
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {group.items.map((anom, i) => (
+                  <motion.div
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    key={anom.id}
+                    className="card flex flex-col justify-between hover:border-kofert-green/30 group transition-all relative overflow-hidden bg-white shadow-sm"
+                  >
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">{anom.equipement}</span>
+                          <h3 className="font-bold text-lg text-kofert-dark mt-1 leading-snug">{anom.item}</h3>
+                        </div>
+                        <span className={`text-xs font-bold px-3 py-1.5 rounded-xl border flex items-center gap-1.5 uppercase tracking-wide select-none ${getStatusBadgeClass(anom.statut)}`}>
+                          {getStatusIcon(anom.statut, 12)}
+                          {anom.statut.replace('_', ' ')}
+                        </span>
+                      </div>
 
-                <div className="text-sm text-gray-500 bg-gray-50 border border-black/5 rounded-2xl p-4 space-y-2">
-                  <p><strong className="text-kofert-dark font-semibold">Responsable :</strong> {anom.assigne_a}</p>
-                  <p className="truncate"><strong className="text-kofert-dark font-semibold">Action corrective :</strong> {anom.description_action || "Aucune action renseignée"}</p>
-                </div>
-              </div>
+                      <div className="text-sm text-gray-500 bg-gray-50 border border-black/5 rounded-2xl p-4 space-y-2">
+                        <p><strong className="text-kofert-dark font-semibold">Responsable :</strong> {anom.assigne_a}</p>
+                        <p className="truncate"><strong className="text-kofert-dark font-semibold">Action corrective :</strong> {anom.description_action || "Aucune action renseignée"}</p>
+                      </div>
+                    </div>
 
-              <div className="flex justify-between items-center border-t border-gray-50 pt-4 mt-6">
-                <span className="text-xs font-medium text-gray-400">Détecté par {anom.technicien} le {new Date(anom.date).toLocaleDateString('fr-FR')}</span>
-                <button
-                  onClick={() => handleOpenEditModal(anom)}
-                  className="btn-primary !px-4 !py-2 text-xs flex items-center gap-1"
-                >
-                  <span>Gérer</span>
-                  <ChevronRight size={14} />
-                </button>
+                    <div className="flex justify-between items-center border-t border-gray-50 pt-4 mt-6">
+                      <span className="text-xs font-medium text-gray-400">Détecté par {anom.technicien}</span>
+                      <button
+                        onClick={() => handleOpenEditModal(anom)}
+                        className="btn-primary !px-4 !py-2 text-xs flex items-center gap-1"
+                      >
+                        <span>Gérer</span>
+                        <ChevronRight size={14} />
+                      </button>
+                    </div>
+                  </motion.div>
+                ))}
               </div>
-            </motion.div>
+            </div>
           ))}
         </div>
       )}

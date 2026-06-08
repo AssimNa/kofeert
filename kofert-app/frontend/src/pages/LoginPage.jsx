@@ -4,7 +4,7 @@ import { useNavigate, Navigate } from 'react-router-dom';
 import { LogIn, Loader2, AlertCircle, Mail, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import logo from '../assets/kofert.jpg';
-import loginBg from '../assets/login_bg.png';
+import loginBg from '../assets/kof.png';
 
 const LoginPage = () => {
   const [username, setUsername] = useState('');
@@ -38,14 +38,14 @@ const LoginPage = () => {
       {/* Left Panel - Image & Branding (Hidden on mobile) */}
       <div className="hidden lg:flex w-1/2 relative bg-kofert-dark items-center justify-center p-12">
         <div className="absolute inset-0 z-0">
-          <img 
-            src={loginBg} 
-            alt="Industrial Background" 
+          <img
+            src={loginBg}
+            alt="Industrial Background"
             className="w-full h-full object-cover opacity-60 mix-blend-overlay"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-kofert-dark via-kofert-dark/60 to-transparent"></div>
         </div>
-        
+
         <div className="relative z-10 w-full max-w-lg">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -56,15 +56,15 @@ const LoginPage = () => {
               <img src={logo} alt="Kofert Logo" className="w-16 h-16 object-contain rounded-2xl" />
             </div>
             <h1 className="text-4xl xl:text-5xl font-bold text-white mb-6 leading-tight">
-              L'excellence dans <br/> <span className="text-kofert-green">l'inspection industrielle.</span>
+              L'excellence dans <br /> <span className="text-kofert-green">l'inspection industrielle.</span>
             </h1>
             <p className="text-gray-300 text-lg mb-10 max-w-md leading-relaxed">
               La plateforme Kofert vous offre des outils avancés pour numériser, suivre et optimiser vos processus d'inspection.
             </p>
-            
+
             <div className="flex gap-4">
               {[1, 2, 3].map((i) => (
-                <motion.div 
+                <motion.div
                   key={i}
                   initial={{ opacity: 0, scale: 0 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -81,7 +81,7 @@ const LoginPage = () => {
       <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 relative">
         {/* Decorative background blur element */}
         <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-kofert-green/5 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
-        
+
         <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -102,7 +102,7 @@ const LoginPage = () => {
 
           <div className="bg-white/80 backdrop-blur-xl p-8 sm:p-10 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/50 relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-kofert-green to-kofert-orange"></div>
-            
+
             <div className="mb-10">
               <h2 className="text-3xl font-bold text-kofert-dark tracking-tight mb-2">Bienvenue</h2>
               <p className="text-gray-500">Connectez-vous à votre compte</p>

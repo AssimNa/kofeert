@@ -82,7 +82,7 @@ export default function FicheScreen({ route, navigation }) {
           text: 'Confirmer et envoyer',
           onPress: async () => {
             setSubmitting(true);
-            const result = await submitInspection();
+            const result = await submitInspection(fiche);
             setSubmitting(false);
 
             if (result.success) {

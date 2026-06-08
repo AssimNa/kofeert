@@ -88,12 +88,16 @@ export function useInspection(ficheId) {
             const item = section.items?.find(i => i.id === itemId);
             if (item && item.item_mesures) {
               item.item_mesures.forEach(m => {
-                if (inspection.mesures[m.id] !== undefined) {
-                  mesuresForItem.push({
-                    item_mesure_id: m.id,
-                    valeur: parseFloat(inspection.mesures[m.id])
-                  });
-                }
+                  const valStr = inspection.mesures[m.id];
+                  if (valStr !== undefined && valStr !== null && valStr.trim() !== '') {
+                    const parsed = parseFloat(valStr.toString().replace(',', '.'));
+                    if (!isNaN(parsed)) {
+                      mesuresForItem.push({
+                        item_mesure_id: m.id,
+                        valeur: parsed
+                      });
+                    }
+                  }
               });
               break;
             }

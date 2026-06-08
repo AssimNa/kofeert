@@ -45,7 +45,10 @@ def create_inspection(data: InspectionCreate, db: Session = Depends(get_db), cur
     db.commit()
     db.refresh(inspection)
     
-    log_action(db, current_user, "CREATE_INSPECTION", "inspections", inspection.id)
+    log_action(db, current_user, "CREATE_INSPECTION", "inspections", inspection.id, {
+        "fiche_template_id": inspection.fiche_template_id,
+        "date_inspection": str(inspection.date_inspection)
+    })
     return inspection
 
 @router.put("/{inspection_id}")
@@ -80,12 +83,22 @@ def save_inspection(inspection_id: int, data: InspectionUpdate, db: Session = De
                 )
                 db.add(mv)
     db.commit()
-    log_action(db, current_user, "SAVE_DRAFT", "inspections", inspection.id)
+    log_action(db, current_user, "SAVE_DRAFT", "inspections", inspection.id, {
+        "resultats_sauvegardes": len(data.resultats)
+    })
     return {"message": "Brouillon sauvegardé"}
 
 @router.post("/{inspection_id}/submit")
 def submit_inspection(inspection_id: int, data: InspectionUpdate, background_tasks: BackgroundTasks, db: Session = Depends(get_db), current_user: User = Depends(require_role([RoleEnum.technicien]))):
     inspection = db.query(Inspection).filter(Inspection.id == inspection_id, Inspection.technicien_id == current_user.id).first()
+    
+    # Verify if the found inspection actually matches the items being submitted
+    if inspection and data.resultats:
+        first_item = db.query(Item).filter(Item.id == data.resultats[0].item_id).first()
+        if first_item and first_item.section.fiche_template_id != inspection.fiche_template_id:
+            # The ID provided is actually a fiche_template_id, not an inspection_id
+            inspection = None
+
     if not inspection:
         # Fallback if the mobile app sends ficheId instead of inspection_id!
         inspection = db.query(Inspection).filter(
@@ -128,8 +141,13 @@ def submit_inspection(inspection_id: int, data: InspectionUpdate, background_tas
         # Delete old open anomalies since we are re-evaluating
         db.query(Anomalie).filter(Anomalie.inspection_id == inspection.id, Anomalie.statut == StatutAnomalieEnum.ouverte).delete()
 
+    # Delete old mesures_valeurs first to avoid IntegrityError
+    resultat_ids = [r.id for r in db.query(Resultat).filter(Resultat.inspection_id == inspection.id).all()]
+    if resultat_ids:
+        db.query(MesureValeur).filter(MesureValeur.resultat_id.in_(resultat_ids)).delete(synchronize_session=False)
+
     # Save new resultats
-    db.query(Resultat).filter(Resultat.inspection_id == inspection.id).delete()
+    db.query(Resultat).filter(Resultat.inspection_id == inspection.id).delete(synchronize_session=False)
     db.commit()
 
     for res_data in data.resultats:
@@ -247,7 +265,11 @@ def submit_inspection(inspection_id: int, data: InspectionUpdate, background_tas
                 failed_items=anomalies_to_report
             )
 
-    log_action(db, current_user, "SUBMIT_INSPECTION", "inspections", inspection.id)
+    log_action(db, current_user, "SUBMIT_INSPECTION", "inspections", inspection.id, {
+        "resultats_soumis": len(data.resultats),
+        "anomalies_detectees": len(anomalies_to_report),
+        "status_global": status_global
+    })
     return {"message": "Inspection soumise avec succès", "anomalies_crees": len(anomalies_to_report)}
 
 @router.get("/supervisor/dashboard")
@@ -502,5 +524,8 @@ def revert_inspection(inspection_id: int, history_id: int, db: Session = Depends
             db.add(anomalie)
 
     db.commit()
-    log_action(db, current_user, "REVERT_INSPECTION", "inspections", inspection.id)
+    log_action(db, current_user, "REVERT_INSPECTION", "inspections", inspection.id, {
+        "historique_restaure_id": history_id,
+        "resultats_restaures": len(history.data.get("resultats", []))
+    })
     return {"message": "Version restaurée avec succès"}

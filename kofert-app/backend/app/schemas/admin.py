@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-from typing import List, Optional
+from typing import List, Optional, Any
 from app.models.user import RoleEnum
 
 class UserCreate(BaseModel):
@@ -65,6 +65,7 @@ class AuditLogOut(BaseModel):
     action: str
     table_cible: str
     record_id: Optional[int]
+    details_json: Optional[Any] = None
     timestamp: str
 
     class Config:
