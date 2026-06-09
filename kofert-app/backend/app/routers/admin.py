@@ -6,7 +6,7 @@ from app.database import get_db
 from app.middlewares.auth import require_role, get_password_hash
 from app.models.user import User, RoleEnum
 from app.models.equipement import Equipement
-from app.models.inspection import Inspection, StatutInspectionEnum
+from app.models.inspection import Inspection, StatutInspectionEnum, InspectionHistory
 from app.models.anomalie import Anomalie, StatutAnomalieEnum
 from app.models.audit import AuditLog
 from app.models.fiche import FicheTemplate
@@ -85,6 +85,14 @@ def delete_user(user_id: int, db: Session = Depends(get_db), current_user: User 
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+        
+    # Détacher l'utilisateur des autres tables pour éviter l'erreur de contrainte de clé étrangère
+    db.query(Equipement).filter(Equipement.superviseur_id == user.id).update({"superviseur_id": None})
+    db.query(Inspection).filter(Inspection.technicien_id == user.id).update({"technicien_id": None})
+    db.query(AuditLog).filter(AuditLog.user_id == user.id).update({"user_id": None})
+    db.query(InspectionHistory).filter(InspectionHistory.modified_by_id == user.id).update({"modified_by_id": None})
+    db.query(Anomalie).filter(Anomalie.assigne_a == user.id).update({"assigne_a": None})
+    
     db.delete(user)
     db.commit()
     return {"detail": "Utilisateur supprimé"}

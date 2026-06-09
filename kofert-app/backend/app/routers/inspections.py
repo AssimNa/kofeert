@@ -282,14 +282,14 @@ def get_supervisor_dashboard(db: Session = Depends(get_db), current_user: User =
     fiches = db.query(FicheTemplate).filter(FicheTemplate.equipement_id.in_(eq_ids)).all()
     fiche_ids = [f.id for f in fiches]
     
-    # Inspections for today
+    # Inspections submitted today (for KPI and list)
     today = date.today()
     inspections_today = db.query(Inspection).filter(
         Inspection.fiche_template_id.in_(fiche_ids),
-        Inspection.date_inspection == today
+        Inspection.date_inspection == today,
+        Inspection.statut == StatutInspectionEnum.soumise
     ).all()
-    
-    fiches_soumises_today = len(set(i.fiche_template_id for i in inspections_today if i.statut == StatutInspectionEnum.soumise))
+    fiches_soumises_today = len(set(i.fiche_template_id for i in inspections_today))
     
     # Active anomalies
     anomalies_query = db.query(Anomalie).join(Inspection).filter(
