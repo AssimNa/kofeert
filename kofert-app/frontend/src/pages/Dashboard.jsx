@@ -55,8 +55,14 @@ const Dashboard = () => {
     { label: 'Équipements', value: adminStats.total_equipements, icon: FileText, color: 'bg-blue-50 text-blue-600' },
     { label: 'Taux Conformité', value: `${adminStats.conformity_rate}%`, icon: AlertTriangle, color: 'bg-kofert-green/10 text-kofert-green' },
   ] : user?.role === 'superviseur' && supStats ? [
-    { label: 'Fiches Reçues (Aujourd\'hui)', value: `${supStats.fiches_soumises_today} / ${supStats.fiches_total_perimeter}`, icon: ClipboardCheck, color: 'bg-kofert-green/10 text-kofert-green' },
-    { label: 'Anomalies Actives', value: supStats.active_anomalies, icon: AlertTriangle, color: 'bg-orange-50 text-orange-600' },
+    { 
+      label: 'Fiches Reçues (Aujourd\'hui)', 
+      value: `${supStats.fiches_soumises_today} / ${supStats.fiches_total_perimeter}`, 
+      icon: ClipboardCheck, 
+      color: 'bg-kofert-green/10 text-kofert-green',
+      progress: supStats.fiches_total_perimeter > 0 ? (supStats.fiches_soumises_today / supStats.fiches_total_perimeter) * 100 : 0
+    },
+    { label: 'Anomalies Actives', value: supStats.active_anomalies, icon: AlertTriangle, color: 'bg-orange-50 text-orange-600', valueColor: 'text-red-500' },
     { label: 'Taux de Conformité', value: `${supStats.conformity_rate}%`, icon: CheckCircle, color: 'bg-blue-50 text-blue-600' },
   ] : [
     { label: 'Fiches du jour', value: fiches.length, icon: ClipboardCheck, color: 'bg-blue-50 text-blue-600' },
@@ -129,7 +135,7 @@ const Dashboard = () => {
               transition={{ delay: 0.2 }}
               className="text-4xl font-extrabold tracking-tight"
             >
-              Bonjour, <span className="text-kofert-green">{user?.prenom}</span>
+              Bonjour, <span className="text-kofert-green">{user?.prenom ? user.prenom.charAt(0).toUpperCase() + user.prenom.slice(1).toLowerCase() : ''}</span>
             </motion.h1>
             <motion.p 
               initial={{ opacity: 0, x: -20 }}
@@ -169,17 +175,22 @@ const Dashboard = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 + (i * 0.1) }}
             key={stat.label} 
-            className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:border-kofert-green/20 hover:-translate-y-1 transition-all duration-300 group"
+            className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 hover:shadow-lg hover:scale-105 cursor-pointer hover:border-kofert-green/20 transition-all duration-300 group flex flex-col justify-between"
           >
             <div className="flex justify-between items-start">
               <div>
                 <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">{stat.label}</p>
-                <h3 className="text-4xl font-extrabold text-kofert-dark group-hover:text-kofert-green transition-colors">{stat.value}</h3>
+                <h3 className={`text-4xl font-extrabold transition-colors ${stat.valueColor || 'text-kofert-dark group-hover:text-kofert-green'}`}>{stat.value}</h3>
               </div>
               <div className={`w-14 h-14 ${stat.color} rounded-2xl flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform`}>
                 <stat.icon size={26} strokeWidth={2.5} />
               </div>
             </div>
+            {stat.progress !== undefined && (
+              <div className="mt-4 w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                <div className="bg-kofert-green h-1.5 rounded-full transition-all duration-500" style={{ width: `${stat.progress}%` }}></div>
+              </div>
+            )}
           </motion.div>
         ))}
       </div>
@@ -309,19 +320,20 @@ const Dashboard = () => {
         </motion.section>
       )}
 
-      {/* Superviseur view: received fiches today */}
+      {/* Superviseur view: received fiches today & Anomalies urgentes */}
       {user?.role === 'superviseur' && supStats && (
-        <motion.section 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden"
-        >
-          <div className="p-6 sm:p-8 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
-            <div className="flex items-center gap-3">
-              <Activity className="text-kofert-green" size={24} />
-              <h2 className="text-2xl font-bold text-kofert-dark">Fiches Reçues Aujourd'hui</h2>
-            </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <motion.section 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="lg:col-span-2 bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex flex-col"
+          >
+            <div className="p-6 sm:p-8 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+              <div className="flex items-center gap-3">
+                <Activity className="text-kofert-green" size={24} />
+                <h2 className="text-2xl font-bold text-kofert-dark">Fiches Reçues Aujourd'hui</h2>
+              </div>
             <span className="text-sm font-medium bg-kofert-green/10 text-kofert-green px-4 py-1.5 rounded-full">
               {supStats.recent_inspections.length} soumises
             </span>
@@ -397,7 +409,64 @@ const Dashboard = () => {
               ))}
             </div>
           )}
-        </motion.section>
+          </motion.section>
+
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6 }}
+            className="lg:col-span-1 bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex flex-col"
+          >
+            <div className="p-6 border-b border-gray-100 flex items-center gap-3 bg-red-50/50">
+              <AlertTriangle className="text-red-500" size={24} />
+              <h2 className="text-xl font-bold text-kofert-dark">Anomalies Urgentes</h2>
+            </div>
+            {supStats.active_anomalies > 0 && supStats.active_anomalies_list ? (
+              <div className="p-6 flex-1 flex flex-col gap-4 overflow-y-auto">
+                {supStats.active_anomalies_list.map((anomalie, idx) => (
+                  <motion.div
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.7 + (idx * 0.1) }}
+                    key={anomalie.id}
+                    className="flex items-center justify-between p-4 bg-red-50/50 rounded-2xl border border-red-100 hover:bg-red-50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-red-500 shadow-sm">
+                        <AlertTriangle size={18} />
+                      </div>
+                      <span className="font-bold text-sm text-kofert-dark truncate max-w-[120px] sm:max-w-[150px]" title={anomalie.equipement}>
+                        {anomalie.equipement}
+                      </span>
+                    </div>
+                    <Link
+                      to={`/inspection-detail/${anomalie.inspection_id}`}
+                      className="px-3 py-1.5 bg-white text-red-600 text-xs font-bold rounded-lg border border-red-200 hover:border-red-300 shadow-sm transition-colors"
+                    >
+                      Voir
+                    </Link>
+                  </motion.div>
+                ))}
+                <Link 
+                  to="/anomalies"
+                  className="mt-2 w-full bg-red-50 text-red-600 hover:bg-red-100 font-bold py-3 rounded-xl transition-colors border border-red-100 flex items-center justify-center gap-2"
+                >
+                  <span>Toutes les anomalies ({supStats.active_anomalies})</span>
+                  <ChevronRight size={18} />
+                </Link>
+              </div>
+            ) : (
+              <div className="p-6 flex-1 flex flex-col justify-center items-center text-center">
+                <div className="w-16 h-16 bg-kofert-green/10 rounded-full flex items-center justify-center mb-4 shadow-inner">
+                  <CheckCircle size={30} className="text-kofert-green" />
+                </div>
+                <p className="text-gray-500 font-medium text-sm">
+                  Super ! Aucune anomalie urgente à traiter pour le moment.
+                </p>
+              </div>
+            )}
+          </motion.section>
+        </div>
       )}
 
       {/* Technician view: checklists to fill */}

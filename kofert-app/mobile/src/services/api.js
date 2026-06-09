@@ -6,8 +6,8 @@ import { Platform } from 'react-native';
 const getBackendUrl = () => {
   if (Platform.OS === 'web') return 'http://127.0.0.1:8000/api';
   
-  // Using stable localtunnel URL to bypass Windows Firewall and Ngrok CORS issues
-  return 'https://petite-weeks-juggle.loca.lt/api';
+  // Using ngrok URL
+  return 'https://parasail-percent-catcher.ngrok-free.dev/api';
 };
 
 const defaultApiUrl = getBackendUrl();

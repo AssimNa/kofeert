@@ -292,10 +292,19 @@ def get_supervisor_dashboard(db: Session = Depends(get_db), current_user: User =
     fiches_soumises_today = len(set(i.fiche_template_id for i in inspections_today if i.statut == StatutInspectionEnum.soumise))
     
     # Active anomalies
-    active_anomalies = db.query(Anomalie).join(Inspection).filter(
+    anomalies_query = db.query(Anomalie).join(Inspection).filter(
         Inspection.fiche_template_id.in_(fiche_ids),
         Anomalie.statut.in_([StatutAnomalieEnum.ouverte, StatutAnomalieEnum.en_cours])
-    ).count()
+    )
+    active_anomalies = anomalies_query.count()
+    
+    active_anomalies_list = []
+    for a in anomalies_query.order_by(Anomalie.id.desc()).limit(5).all():
+        active_anomalies_list.append({
+            "id": a.id,
+            "equipement": a.inspection.fiche_template.equipement.nom if a.inspection.fiche_template.equipement else a.inspection.fiche_template.nom,
+            "inspection_id": a.inspection_id
+        })
     
     # Total historical inspections submitted
     total_submitted = db.query(Inspection).filter(
@@ -319,6 +328,7 @@ def get_supervisor_dashboard(db: Session = Depends(get_db), current_user: User =
         "fiches_total_perimeter": active_fiches_count,
         "fiches_soumises_today": fiches_soumises_today,
         "active_anomalies": active_anomalies,
+        "active_anomalies_list": active_anomalies_list,
         "conformity_rate": conformity_rate,
         "recent_inspections": [{
             "id": i.id,

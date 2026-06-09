@@ -84,7 +84,7 @@ const Layout = () => {
               )}
             </div>
             <div className="flex flex-col">
-              <span className="font-semibold text-sm truncate w-32">{user?.prenom} {user?.nom}</span>
+              <span className="font-semibold text-sm truncate w-32 capitalize">{user?.prenom} {user?.nom}</span>
               <span className="text-xs text-gray-400 capitalize">{user?.role}</span>
             </div>
           </div>
