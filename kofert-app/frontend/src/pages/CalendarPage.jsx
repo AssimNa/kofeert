@@ -74,7 +74,7 @@ const CalendarPage = () => {
       case 'conforme': return 'bg-kofert-green text-white shadow-lg shadow-kofert-green/40';
       case 'anomalie': return 'bg-kofert-red text-white shadow-lg shadow-kofert-red/40';
       case 'partiel': return 'bg-kofert-orange text-white shadow-lg shadow-kofert-orange/40';
-      case 'manquant': return 'bg-kofert-blue text-white shadow-lg shadow-kofert-blue/40';
+      case 'manquant': return 'bg-gray-400 text-white shadow-lg shadow-gray-400/40';
       default: return 'bg-gray-100 text-gray-400';
     }
   };
@@ -95,6 +95,20 @@ const CalendarPage = () => {
       const isToday = new Date().toDateString() === new Date(currentDate.getFullYear(), currentDate.getMonth(), day).toDateString();
       const isSelected = selectedDate === dateStr;
 
+      let ringClass = '';
+      if (isSelected) {
+        if (dayInfo) {
+          ringClass = `ring-2 ring-offset-2 bg-gray-50 ${
+            dayInfo.statut === 'conforme' ? 'ring-kofert-green' :
+            dayInfo.statut === 'anomalie' ? 'ring-orange-500' :
+            dayInfo.statut === 'partiel' ? 'ring-blue-500' :
+            'ring-gray-400'
+          }`;
+        } else {
+          ringClass = 'ring-2 ring-kofert-dark ring-offset-2 bg-gray-50';
+        }
+      }
+
       days.push(
         <motion.div
           whileHover={dayInfo ? { y: -4, scale: 1.02 } : {}}
@@ -102,7 +116,7 @@ const CalendarPage = () => {
           key={day}
           className={`h-28 md:h-36 p-3 sm:p-4 rounded-3xl transition-all flex flex-col justify-between group relative overflow-hidden ${
             dayInfo ? 'bg-white shadow-sm hover:shadow-lg cursor-pointer border border-gray-100' : 'bg-gray-50/80 border border-gray-200/80'
-          } ${isToday ? 'ring-2 ring-kofert-green ring-offset-2' : ''} ${isSelected ? 'ring-2 ring-kofert-dark ring-offset-2 bg-gray-50' : ''}`}
+          } ${isToday && !isSelected ? 'ring-2 ring-kofert-green ring-offset-2' : ''} ${ringClass}`}
         >
           <div className="flex justify-between items-start">
             <span className={`text-xl font-bold ${isToday ? 'text-kofert-green' : dayInfo ? 'text-kofert-dark' : 'text-gray-400'}`}>
@@ -118,22 +132,30 @@ const CalendarPage = () => {
             )}
           </div>
           
-          {dayInfo && (
+          {dayInfo && dayInfo.fiches_total > 0 && (
             <div className="space-y-1.5 mt-2">
-              <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-                <div 
-                  className={`h-full transition-all duration-1000 ${
-                    dayInfo.statut === 'conforme' ? 'bg-kofert-green' :
-                    dayInfo.statut === 'anomalie' ? 'bg-kofert-red' :
-                    dayInfo.statut === 'partiel' ? 'bg-kofert-orange' : 'bg-kofert-blue'
-                  }`} 
-                  style={{ width: `${(dayInfo.fiches_soumises / dayInfo.fiches_total) * 100}%` }}
-                />
-              </div>
-              <p className="text-[11px] sm:text-xs font-bold text-gray-500 truncate flex justify-between">
-                <span>{dayInfo.fiches_soumises}/{dayInfo.fiches_total}</span>
-                <span className="hidden sm:inline">FICHES</span>
-              </p>
+              {dayInfo.fiches_soumises === 0 && dayInfo.statut === 'manquant' ? (
+                <div className="bg-gray-100 text-gray-500 text-[10px] sm:text-xs font-bold py-1.5 px-2 rounded-lg text-center uppercase tracking-widest border border-gray-200 mt-2">
+                  Manquant
+                </div>
+              ) : (
+                <>
+                  <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full transition-all duration-1000 ${
+                        dayInfo.statut === 'conforme' ? 'bg-kofert-green' :
+                        dayInfo.statut === 'anomalie' ? 'bg-kofert-red' :
+                        dayInfo.statut === 'partiel' ? 'bg-kofert-orange' : 'bg-gray-400'
+                      }`} 
+                      style={{ width: `${(dayInfo.fiches_soumises / dayInfo.fiches_total) * 100}%` }}
+                    />
+                  </div>
+                  <p className="text-[11px] sm:text-xs font-bold text-gray-500 truncate flex justify-between">
+                    <span>{dayInfo.fiches_soumises}/{dayInfo.fiches_total}</span>
+                    <span className="hidden sm:inline">FICHES</span>
+                  </p>
+                </>
+              )}
             </div>
           )}
         </motion.div>
@@ -178,17 +200,25 @@ const CalendarPage = () => {
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.4 }}
-            className="flex items-center bg-white/10 backdrop-blur-md p-1.5 rounded-2xl border border-white/20 shadow-lg self-start md:self-auto"
+            className="flex items-center gap-2 self-start md:self-auto"
           >
-            <button onClick={handlePrevMonth} className="p-3 hover:bg-white/20 rounded-xl transition-all group">
-              <ChevronLeft size={24} className="text-white group-hover:-translate-x-1 transition-transform" />
+            <button 
+              onClick={() => setCurrentDate(new Date())} 
+              className="px-4 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-2xl transition-all text-white font-bold text-sm backdrop-blur-md"
+            >
+              Aujourd'hui
             </button>
-            <span className="px-6 font-extrabold text-lg min-w-[160px] text-center tracking-wide">
-              {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
-            </span>
-            <button onClick={handleNextMonth} className="p-3 hover:bg-white/20 rounded-xl transition-all group">
-              <ChevronRight size={24} className="text-white group-hover:translate-x-1 transition-transform" />
-            </button>
+            <div className="flex items-center bg-white/10 backdrop-blur-md p-1.5 rounded-2xl border border-white/20 shadow-lg">
+              <button onClick={handlePrevMonth} className="p-3 hover:bg-white/20 rounded-xl transition-all group">
+                <ChevronLeft size={24} className="text-white group-hover:-translate-x-1 transition-transform" />
+              </button>
+              <span className="px-6 font-extrabold text-lg min-w-[160px] text-center tracking-wide">
+                {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+              </span>
+              <button onClick={handleNextMonth} className="p-3 hover:bg-white/20 rounded-xl transition-all group">
+                <ChevronRight size={24} className="text-white group-hover:translate-x-1 transition-transform" />
+              </button>
+            </div>
           </motion.div>
         </div>
       </header>
@@ -213,7 +243,7 @@ const CalendarPage = () => {
           <span className="text-sm font-bold text-gray-600 uppercase tracking-wider">Anomalie</span>
         </div>
         <div className="flex items-center gap-2.5 px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors">
-          <div className="w-3 h-3 rounded-full bg-kofert-blue shadow-[0_0_10px_rgba(133,183,235,0.5)]"></div>
+          <div className="w-3 h-3 rounded-full bg-gray-400 shadow-[0_0_10px_rgba(156,163,175,0.5)]"></div>
           <span className="text-sm font-bold text-gray-600 uppercase tracking-wider">Manquant</span>
         </div>
       </motion.div>
