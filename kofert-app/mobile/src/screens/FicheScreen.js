@@ -17,7 +17,7 @@ import api from '../services/api';
 
 export default function FicheScreen({ route, navigation }) {
   const { ficheId, ficheName } = route.params;
-  const { inspection, loading, updateResult, updateMesure, updateRemarque, submitInspection, saveBrouillon, loadInspection } = useInspection(ficheId);
+  const { inspection, loading, updateResult, updateMesure, updateRemarque, updatePhoto, submitInspection, saveBrouillon, loadInspection } = useInspection(ficheId);
   const [fiche, setFiche] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [autoSaveTimer, setAutoSaveTimer] = useState(null);
@@ -55,6 +55,19 @@ export default function FicheScreen({ route, navigation }) {
     return Object.keys(inspection.resultats).length;
   };
 
+  const getMissingPhotosCount = () => {
+    if (!inspection || !inspection.resultats) return 0;
+    let missing = 0;
+    for (const [itemId, result] of Object.entries(inspection.resultats)) {
+      if (result === 'non_conforme') {
+        if (!inspection.photos || !inspection.photos[itemId]) {
+          missing++;
+        }
+      }
+    }
+    return missing;
+  };
+
   const getTotalPoints = () => {
     if (!fiche) return 0;
     let count = 0;
@@ -67,9 +80,15 @@ export default function FicheScreen({ route, navigation }) {
   const handleSubmit = async () => {
     const total = getTotalPoints();
     const filled = countFilledPoints();
+    const missingPhotos = getMissingPhotosCount();
 
     if (filled < total) {
       Alert.alert('Incomplète', `Veuillez remplir tous les ${total} points avant d'envoyer.`);
+      return;
+    }
+
+    if (missingPhotos > 0) {
+      Alert.alert('Photo manquante', `Veuillez prendre une photo pour les ${missingPhotos} point(s) non conforme(s) avant d'envoyer.`);
       return;
     }
 
@@ -104,6 +123,8 @@ export default function FicheScreen({ route, navigation }) {
 
   const filled = countFilledPoints();
   const total = getTotalPoints();
+  const missingPhotos = getMissingPhotosCount();
+  const isSubmitDisabled = filled < total || missingPhotos > 0;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -119,9 +140,11 @@ export default function FicheScreen({ route, navigation }) {
                 result={inspection?.resultats[item.id]}
                 mesures={inspection?.mesures || {}}
                 remarque={inspection?.remarques[item.id] || ''}
+                photo={inspection?.photos?.[item.id] || null}
                 onResultChange={(result) => updateResult(item.id, result)}
                 onMesureChange={(mesureId, value) => updateMesure(mesureId, value)}
                 onRemarqueChange={(remarque) => updateRemarque(item.id, remarque)}
+                onPhotoChange={(photoBase64) => updatePhoto(item.id, photoBase64)}
               />
             ))}
           </View>
@@ -141,10 +164,10 @@ export default function FicheScreen({ route, navigation }) {
         <TouchableOpacity
           style={[
             styles.submitButton,
-            filled < total && styles.submitButtonDisabled
+            isSubmitDisabled && styles.submitButtonDisabled
           ]}
           onPress={handleSubmit}
-          disabled={filled < total || submitting}
+          disabled={isSubmitDisabled || submitting}
         >
           {submitting ? (
             <ActivityIndicator color="#fff" />

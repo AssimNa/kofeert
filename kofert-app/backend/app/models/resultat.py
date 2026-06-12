@@ -15,6 +15,7 @@ class Resultat(Base):
     item_id = Column(Integer, ForeignKey("items.id"))
     resultat = Column(Enum(ResultatEnum))
     remarque = Column(Text, nullable=True)
+    photo_url = Column(Text, nullable=True)
 
     inspection = relationship("Inspection", back_populates="resultats")
     item = relationship("Item")

@@ -5,7 +5,10 @@ import {
   TouchableOpacity,
   TextInput,
   StyleSheet,
+  Image,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import Colors from '../constants/colors';
 
 export default function ChecklistItem({
@@ -13,9 +16,11 @@ export default function ChecklistItem({
   result,
   remarque,
   mesures = {},
+  photo,
   onResultChange,
   onRemarqueChange,
   onMesureChange,
+  onPhotoChange,
 }) {
   const getIcon = () => {
     if (result === 'conforme') return '✓';
@@ -29,7 +34,30 @@ export default function ChecklistItem({
     return '#999';
   };
 
-  const hasNumeric = item.item_mesures && item.item_mesures.length > 0;
+  const hasNumeric = item.mesures && item.mesures.length > 0;
+
+  const handleTakePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      alert('Désolé, nous avons besoin de la permission d\'accéder à la caméra !');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      allowsEditing: false,
+      quality: 0.5,
+      base64: true,
+    });
+
+    if (!result.canceled) {
+      onPhotoChange(`data:image/jpeg;base64,${result.assets[0].base64}`);
+    }
+  };
+
+  const handleDeletePhoto = () => {
+    onPhotoChange(null);
+  };
 
   return (
     <View style={[styles.container, { borderLeftColor: getColor() }]}>
@@ -66,7 +94,7 @@ export default function ChecklistItem({
 
       {hasNumeric && (
         <View style={styles.mesuresGroup}>
-          {item.item_mesures.map((mesure) => (
+          {item.mesures.map((mesure) => (
             <View key={mesure.id} style={styles.mesureRow}>
               <Text style={styles.mesureLabel}>{mesure.label} ({mesure.unite})</Text>
               <TextInput
@@ -88,6 +116,34 @@ export default function ChecklistItem({
         onChangeText={onRemarqueChange}
         multiline
       />
+
+      {result === 'non_conforme' && (
+        <View style={styles.photoContainer}>
+          {photo ? (
+            <View style={styles.photoPreviewContainer}>
+              <Image source={{ uri: photo }} style={styles.photoPreview} />
+              <View style={styles.photoActions}>
+                <TouchableOpacity style={styles.deleteButton} onPress={handleDeletePhoto}>
+                  <Ionicons name="trash" size={16} color="#fff" />
+                  <Text style={styles.actionText}>Supprimer</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.retakeButton} onPress={handleTakePhoto}>
+                  <Ionicons name="camera-reverse" size={16} color="#fff" />
+                  <Text style={styles.actionText}>Reprendre</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <>
+              <TouchableOpacity style={styles.photoButton} onPress={handleTakePhoto}>
+                <Ionicons name="camera" size={20} color={Colors.red} />
+                <Text style={styles.photoButtonText}>Prendre une photo</Text>
+              </TouchableOpacity>
+              <Text style={styles.missingPhotoText}>⚠️ Veuillez prendre une photo pour cet item.</Text>
+            </>
+          )}
+        </View>
+      )}
     </View>
   );
 }
@@ -202,5 +258,75 @@ const styles = StyleSheet.create({
     padding: 8,
     fontSize: 12,
     minHeight: 50,
+  },
+  photoContainer: {
+    marginTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    paddingTop: 10,
+  },
+  photoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF5F5',
+    borderWidth: 1,
+    borderColor: '#FED7D7',
+    borderRadius: 8,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  photoButtonText: {
+    color: Colors.red,
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  photoPreviewContainer: {
+    position: 'relative',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  photoPreview: {
+    width: '100%',
+    height: 150,
+    borderRadius: 8,
+  },
+  photoActions: {
+    position: 'absolute',
+    bottom: 10,
+    left: 10,
+    right: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  deleteButton: {
+    backgroundColor: 'rgba(220, 53, 69, 0.85)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    gap: 4,
+  },
+  retakeButton: {
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    gap: 4,
+  },
+  actionText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  missingPhotoText: {
+    color: Colors.red,
+    fontSize: 11,
+    marginTop: 6,
+    textAlign: 'center',
+    fontWeight: '500',
   },
 });

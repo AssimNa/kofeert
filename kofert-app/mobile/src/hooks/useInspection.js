@@ -25,7 +25,8 @@ export function useInspection(ficheId) {
         fiche_id: ficheId,
         resultats: {},
         mesures: {},
-        remarques: {}
+        remarques: {},
+        photos: {}
       };
       
       setInspection(newInspection);
@@ -65,6 +66,13 @@ export function useInspection(ficheId) {
     }));
   }, []);
 
+  const updatePhoto = useCallback((itemId, photoBase64) => {
+    setInspection(prev => ({
+      ...prev,
+      photos: { ...prev.photos, [itemId]: photoBase64 }
+    }));
+  }, []);
+
   const saveBrouillon = useCallback(async () => {
     if (!inspection) return;
     setIsSaving(true);
@@ -86,8 +94,8 @@ export function useInspection(ficheId) {
         if (fiche && fiche.sections) {
           for (const section of fiche.sections) {
             const item = section.items?.find(i => i.id === itemId);
-            if (item && item.item_mesures) {
-              item.item_mesures.forEach(m => {
+            if (item && item.mesures) {
+              item.mesures.forEach(m => {
                   const valStr = inspection.mesures[m.id];
                   if (valStr !== undefined && valStr !== null && valStr.trim() !== '') {
                     const parsed = parseFloat(valStr.toString().replace(',', '.'));
@@ -108,6 +116,7 @@ export function useInspection(ficheId) {
           item_id: itemId,
           resultat: inspection.resultats[itemId],
           remarque: inspection.remarques[itemId] || null,
+          photo_base64: inspection.photos?.[itemId] || null,
           mesures: mesuresForItem
         };
       });
@@ -151,6 +160,7 @@ export function useInspection(ficheId) {
     updateResult,
     updateMesure,
     updateRemarque,
+    updatePhoto,
     saveBrouillon,
     submitInspection
   };

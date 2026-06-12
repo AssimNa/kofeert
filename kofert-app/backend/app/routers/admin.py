@@ -343,7 +343,8 @@ def export_inspection_pdf(inspection_id: int, db: Session = Depends(get_db), cur
         items_for_pdf.append({
             "label": res.item.equipement_label,
             "resultat": res.resultat.value,
-            "remarque": res.remarque
+            "remarque": res.remarque,
+            "photo_url": res.photo_url
         })
     
     eq = inspection.fiche_template.equipement

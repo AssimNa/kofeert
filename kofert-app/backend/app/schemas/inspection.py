@@ -12,6 +12,7 @@ class ResultatCreate(BaseModel):
     item_id: int
     resultat: ResultatEnum
     remarque: Optional[str] = None
+    photo_base64: Optional[str] = None
     mesures: Optional[List[MesureCreate]] = []
 
 class InspectionCreate(BaseModel):
@@ -30,6 +31,7 @@ class ResultatOut(BaseModel):
     item_id: int
     resultat: ResultatEnum
     remarque: Optional[str] = None
+    photo_url: Optional[str] = None
     mesures_valeurs: List[MesureOut] = []
     class Config:
         from_attributes = True

@@ -42,6 +42,19 @@ def generate_inspection_pdf(inspection_id: int, date_inspection: str, technicien
             y -= 15
             c.drawString(70, y, f"Remarque: {item['remarque']}")
             
+        if item.get('photo_url'):
+            photo_path = item['photo_url'].lstrip('/')
+            if os.path.exists(photo_path):
+                y -= 120
+                if y < 50:
+                    c.showPage()
+                    y = height - 150
+                try:
+                    c.drawImage(photo_path, 70, y, width=150, height=100, preserveAspectRatio=True)
+                except Exception as e:
+                    print("Error drawing image in PDF:", e)
+                    c.drawString(70, y + 80, "[Erreur: Image indisponible]")
+
         y -= 20
         
     c.save()

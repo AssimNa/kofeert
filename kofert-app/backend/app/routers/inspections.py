@@ -4,6 +4,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import date, datetime
 import calendar
+import base64
+import uuid
+import os
 from typing import List, Dict
 
 from app.database import get_db
@@ -65,11 +68,28 @@ def save_inspection(inspection_id: int, data: InspectionUpdate, db: Session = De
     db.commit()
 
     for res_data in data.resultats:
+        photo_url = None
+        if hasattr(res_data, 'photo_base64') and res_data.photo_base64:
+            try:
+                encoded = res_data.photo_base64
+                if "base64," in encoded:
+                    header, encoded = encoded.split("base64,", 1)
+                img_data = base64.b64decode(encoded)
+                filename = f"photo_{uuid.uuid4().hex}.jpg"
+                os.makedirs(os.path.join("uploads", "inspections"), exist_ok=True)
+                filepath = os.path.join("uploads", "inspections", filename)
+                with open(filepath, "wb") as f:
+                    f.write(img_data)
+                photo_url = f"/uploads/inspections/{filename}"
+            except Exception as e:
+                print("Error saving photo:", e)
+
         res = Resultat(
             inspection_id=inspection.id,
             item_id=res_data.item_id,
             resultat=res_data.resultat,
-            remarque=res_data.remarque
+            remarque=res_data.remarque,
+            photo_url=photo_url
         )
         db.add(res)
         db.flush() # To get res.id
@@ -151,11 +171,28 @@ def submit_inspection(inspection_id: int, data: InspectionUpdate, background_tas
     db.commit()
 
     for res_data in data.resultats:
+        photo_url = None
+        if hasattr(res_data, 'photo_base64') and res_data.photo_base64:
+            try:
+                encoded = res_data.photo_base64
+                if "base64," in encoded:
+                    header, encoded = encoded.split("base64,", 1)
+                img_data = base64.b64decode(encoded)
+                filename = f"photo_{uuid.uuid4().hex}.jpg"
+                os.makedirs(os.path.join("uploads", "inspections"), exist_ok=True)
+                filepath = os.path.join("uploads", "inspections", filename)
+                with open(filepath, "wb") as f:
+                    f.write(img_data)
+                photo_url = f"/uploads/inspections/{filename}"
+            except Exception as e:
+                print("Error saving photo:", e)
+
         res = Resultat(
             inspection_id=inspection.id,
             item_id=res_data.item_id,
             resultat=res_data.resultat,
-            remarque=res_data.remarque
+            remarque=res_data.remarque,
+            photo_url=photo_url
         )
         db.add(res)
         db.flush()
@@ -189,7 +226,8 @@ def submit_inspection(inspection_id: int, data: InspectionUpdate, background_tas
         items_for_pdf.append({
             "label": item.equipement_label,
             "resultat": res.resultat.value,
-            "remarque": res.remarque
+            "remarque": res.remarque,
+            "photo_url": res.photo_url
         })
         
         # Gather associated measures / readings
@@ -453,7 +491,8 @@ def export_inspection_pdf_generic(inspection_id: int, db: Session = Depends(get_
         items_for_pdf.append({
             "label": res.item.equipement_label,
             "resultat": res.resultat.value,
-            "remarque": res.remarque
+            "remarque": res.remarque,
+            "photo_url": res.photo_url
         })
     
     eq = inspection.fiche_template.equipement

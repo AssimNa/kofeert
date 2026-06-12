@@ -214,6 +214,20 @@ const DetailFichePage = () => {
                     </div>
                   </div>
                 )}
+
+                {/* Photo Render */}
+                {res?.photo_url && (
+                  <div className="p-4 bg-gray-50 border border-black/5 rounded-2xl flex flex-col gap-2">
+                    <span className="font-bold text-xs text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                      <FileText size={14} /> Photo de l'anomalie
+                    </span>
+                    <img 
+                      src={`${(import.meta.env.VITE_API_URL || 'http://localhost:8000/api').replace('/api', '')}${res.photo_url}`} 
+                      alt="Anomalie" 
+                      className="max-w-full h-auto rounded-lg shadow-sm max-h-64 object-contain border border-black/5 bg-white" 
+                    />
+                  </div>
+                )}
               </div>
             </div>
           );
